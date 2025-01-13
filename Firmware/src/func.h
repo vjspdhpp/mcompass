@@ -12,6 +12,15 @@ void saveHomeLocation(Location location);
  */
 void getHomeLocation(Location &location);
 /**
+ * @brief 保存指针颜色
+ */
+void saveNeedleColor(NeedleColor color);
+/**
+ * @brief 保存指针颜色
+ */
+void getNeedleColor(NeedleColor &color);
+
+/**
  * @brief 计算方位角
  * @param latA 目标位置纬度
  * @param lonA 目标位置经度
@@ -125,7 +134,7 @@ bool shouldStopServer();
  * @brief 初始化蓝牙
  */
 void initBleServer();
-
+void ble_loop();
 /**
  * @brief 开启热点
  */

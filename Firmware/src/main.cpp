@@ -28,7 +28,7 @@ CompassType deviceType = CompassType::LocationCompass;
 // 用来显示特定动画的帧索引
 uint8_t animationFrameIndex = 0;
 // GPS休眠时间
-uint32_t gpsSleepInterval = 60 * 60; // 单位:秒
+uint32_t gpsSleepInterval = 60 * 60;  // 单位:秒
 // 是否有GPS
 bool hasGPS = false;
 // 超时检测计数器
@@ -37,10 +37,10 @@ uint32_t serverTimeoutCount = 0;
 TaskHandle_t gpsTask = NULL;
 // GPS休眠配置表
 const SleepConfig sleepConfigs[] = {
-    {10.0f, 0, true},         // 在10KM距离内，不休眠
-    {50.0f, 5 * 60, false},   // 超过50KM，休眠5分钟
-    {100.0f, 10 * 60, false}, // 超过100KM，休眠10分钟
-    {200.0f, 15 * 60, false}, // 超过200KM，休眠15分钟
+    {10.0f, 0, true},          // 在10KM距离内，不休眠
+    {50.0f, 5 * 60, false},    // 超过50KM，休眠5分钟
+    {100.0f, 10 * 60, false},  // 超过100KM，休眠10分钟
+    {200.0f, 15 * 60, false},  // 超过200KM，休眠15分钟
 };
 // 强制进入下界
 bool forceTheNether = false;
@@ -48,6 +48,7 @@ bool forceTheNether = false;
 void setup() {
   // 延时,用于一些特殊情况下能够重新烧录
   delay(1500);
+#ifdef CONFIG_IDF_TARGET_ESP32C3
   // 配置校准引脚状态
   pinMode(CALIBRATE_PIN, INPUT_PULLUP);
   pinMode(GPS_EN_PIN, OUTPUT);
@@ -109,160 +110,166 @@ void setup() {
   button.attachClick(
       [](void *scope) {
         switch (deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (deviceType == CompassType::LocationCompass) {
-            deviceType = CompassType::NorthCompass;
-          } else {
-            deviceType = CompassType::LocationCompass;
+          case CompassState::STATE_COMPASS: {
+            if (deviceType == CompassType::LocationCompass) {
+              deviceType = CompassType::NorthCompass;
+            } else {
+              deviceType = CompassType::LocationCompass;
+            }
+            Serial.print("Toggle Compass Type to ");
+            Serial.println(deviceType == CompassType::LocationCompass
+                               ? "LocationCompass"
+                               : "NorthCompass");
+            break;
           }
-          Serial.print("Toggle Compass Type to ");
-          Serial.println(deviceType == CompassType::LocationCompass
-                             ? "LocationCompass"
-                             : "NorthCompass");
-          break;
-        }
 
-        default:
-          break;
+          default:
+            break;
         }
       },
       &button);
   button.attachLongPressStart(
       [](void *scope) {
         switch (deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (deviceType == CompassType::LocationCompass) {
-            // 设置当前地点为Home
-            // 检查GPS状态
-            if (currentLoc.latitude < 500.0f) {
-              saveHomeLocation(currentLoc);
-              targetLoc.latitude = currentLoc.latitude;
-              targetLoc.longitude = currentLoc.longitude;
-              Serial.println("Set Home");
+          case CompassState::STATE_COMPASS: {
+            if (deviceType == CompassType::LocationCompass) {
+              // 设置当前地点为Home
+              // 检查GPS状态
+              if (currentLoc.latitude < 500.0f) {
+                saveHomeLocation(currentLoc);
+                targetLoc.latitude = currentLoc.latitude;
+                targetLoc.longitude = currentLoc.longitude;
+                Serial.println("Set Home");
+              } else {
+                Serial.println("Can't set home");
+              }
             } else {
-              Serial.println("Can't set home");
+              // 指南针模式下长按切换到theNether
+              forceTheNether = !forceTheNether;
             }
-          } else {
-            // 指南针模式下长按切换到theNether
-            forceTheNether = !forceTheNether;
+            break;
           }
-          break;
-        }
-        case CompassState::STATE_CONNECT_WIFI: {
-          Serial.println("Clear WiFi");
-          // 清空WiFi配置
-          Preferences preferences;
-          preferences.begin("wifi", false);
-          preferences.putString("ssid", "");
-          preferences.putString("password", "");
-          preferences.end();
-          delay(3000);
-          esp_restart();
-        }
+          case CompassState::STATE_CONNECT_WIFI: {
+            Serial.println("Clear WiFi");
+            // 清空WiFi配置
+            Preferences preferences;
+            preferences.begin("wifi", false);
+            preferences.putString("ssid", "");
+            preferences.putString("password", "");
+            preferences.end();
+            delay(3000);
+            esp_restart();
+          }
 
-        default:
-          break;
+          default:
+            break;
         }
       },
       &button);
   deviceState = STATE_COMPASS;
   setupServer();
+#elif CONFIG_IDF_TARGET_ESP32S3
+  Serial.begin(115200);
+  Serial.println("NIMBLE!");
+  initBleServer();
+#endif
 }
 
 void loop() {
-  delay(1000);
-  if (millis() > 2 * 60 * 1000L && shouldStopServer()) {
-    // 关闭本地网页服务
-    endWebServer();
-  }
-  // 启动后60秒内没有检测到GPS模块, 关闭GPS的TASK
-  if (millis() > 60 * 1000L && !hasGPS) {
-    if (gpsTask != NULL) {
-      Serial.printf("Delete GPS Task\n");
-      vTaskDelete(gpsTask);
-      gpsTask = NULL;
-    }
-  }
-  serverTimeoutCount++;
+  // delay(1000);
+  // if (millis() > 2 * 60 * 1000L && shouldStopServer()) {
+  //   // 关闭本地网页服务
+  //   endWebServer();
+  // }
+  // // 启动后60秒内没有检测到GPS模块, 关闭GPS的TASK
+  // if (millis() > 60 * 1000L && !hasGPS) {
+  //   if (gpsTask != NULL) {
+  //     Serial.printf("Delete GPS Task\n");
+  //     vTaskDelete(gpsTask);
+  //     gpsTask = NULL;
+  //   }
+  // }
+  // serverTimeoutCount++;
+  ble_loop();
 }
 
 void displayTask(void *pvParameters) {
   while (1) {
     switch (deviceState) {
-    case STATE_LOST_BEARING:
-    case STATE_WAIT_GPS: {
-      // 等待GPS数据
-      theNether();
-      delay(50);
-      continue;
-    }
-    case STATE_COMPASS: {
-      compass.read();
-      float azimuth = compass.getAzimuth();
-      if (azimuth < 0) {
-        azimuth += 360;
+      case STATE_LOST_BEARING:
+      case STATE_WAIT_GPS: {
+        // 等待GPS数据
+        theNether();
+        delay(50);
+        continue;
       }
-      if (deviceType == CompassType::LocationCompass) {
-        // 检测当前坐标是否合法
-        if (currentLoc.latitude < 200.0f) {
-          showFrameByLocation(targetLoc.latitude, targetLoc.longitude,
-                              currentLoc.latitude, currentLoc.longitude,
-                              azimuth);
-        } else {
-          theNether();
-          delay(50);
-          continue;
+      case STATE_COMPASS: {
+        compass.read();
+        float azimuth = compass.getAzimuth();
+        if (azimuth < 0) {
+          azimuth += 360;
         }
-      } else {
+        if (deviceType == CompassType::LocationCompass) {
+          // 检测当前坐标是否合法
+          if (currentLoc.latitude < 200.0f) {
+            showFrameByLocation(targetLoc.latitude, targetLoc.longitude,
+                                currentLoc.latitude, currentLoc.longitude,
+                                azimuth);
+          } else {
+            theNether();
+            delay(50);
+            continue;
+          }
+        } else {
 #if DEBUG_DISPLAY
-        Serial.printf("Azimuth = %d\n", azimuth);
+          Serial.printf("Azimuth = %d\n", azimuth);
 #endif
-        if (forceTheNether) {
-          theNether();
-        } else {
-          showFrameByAzimuth(360 - azimuth);
+          if (forceTheNether) {
+            theNether();
+          } else {
+            showFrameByAzimuth(360 - azimuth);
+          }
         }
+        delay(50);
+        break;
       }
-      delay(50);
-      break;
-    }
-    case STATE_CONNECT_WIFI:
-      showFrame(animationFrameIndex, CRGB::Green);
-      animationFrameIndex++;
-      if (animationFrameIndex > MAX_FRAME_INDEX) {
-        animationFrameIndex = 0;
+      case STATE_CONNECT_WIFI:
+        showFrame(animationFrameIndex, CRGB::Green);
+        animationFrameIndex++;
+        if (animationFrameIndex > MAX_FRAME_INDEX) {
+          animationFrameIndex = 0;
+        }
+        delay(30);
+        break;
+      case STATE_SERVER_COLORS: {
+        // showServerColors();
+        delay(50);
+        break;
       }
-      delay(30);
-      break;
-    case STATE_SERVER_COLORS: {
-      // showServerColors();
-      delay(50);
-      break;
-    }
-    case STATE_SERVER_WIFI: {
-      showServerWifi();
-      break;
-    }
-    case STATE_SERVER_SPAWN: {
-      showServerSpawn();
-      break;
-    }
-    case STATE_SERVER_INFO: {
-      showServerInfo();
-      break;
-    }
-    case STATE_HOTSPOT: {
-      showFrame(animationFrameIndex, CRGB::Yellow);
-      animationFrameIndex++;
-      if (animationFrameIndex > MAX_FRAME_INDEX) {
-        animationFrameIndex = 0;
+      case STATE_SERVER_WIFI: {
+        showServerWifi();
+        break;
       }
-      delay(30);
-      break;
-    }
-    default:
-      delay(50);
-      break;
+      case STATE_SERVER_SPAWN: {
+        showServerSpawn();
+        break;
+      }
+      case STATE_SERVER_INFO: {
+        showServerInfo();
+        break;
+      }
+      case STATE_HOTSPOT: {
+        showFrame(animationFrameIndex, CRGB::Yellow);
+        animationFrameIndex++;
+        if (animationFrameIndex > MAX_FRAME_INDEX) {
+          animationFrameIndex = 0;
+        }
+        delay(30);
+        break;
+      }
+      default:
+        delay(50);
+        break;
     }
   }
 }
@@ -344,20 +351,16 @@ void locationTask(void *pvParameters) {
 
       Serial.print(" ");
       if (gps.time.isValid()) {
-        if (gps.time.hour() < 10)
-          Serial.print("0");
+        if (gps.time.hour() < 10) Serial.print("0");
         Serial.print(gps.time.hour());
         Serial.print(":");
-        if (gps.time.minute() < 10)
-          Serial.print("0");
+        if (gps.time.minute() < 10) Serial.print("0");
         Serial.print(gps.time.minute());
         Serial.print(":");
-        if (gps.time.second() < 10)
-          Serial.print("0");
+        if (gps.time.second() < 10) Serial.print("0");
         Serial.print(gps.time.second());
         Serial.print(".");
-        if (gps.time.centisecond() < 10)
-          Serial.print("0");
+        if (gps.time.centisecond() < 10) Serial.print("0");
         Serial.print(gps.time.centisecond());
       } else {
         Serial.print("INVALID");
