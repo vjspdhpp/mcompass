@@ -1,8 +1,11 @@
 #pragma once
 
+#include <Arduino.h>
+
 #include "common.h"
 
-/// 函数声明
+
+namespace Preference {
 /**
  * @brief 保存目标位置
  */
@@ -16,10 +19,20 @@ void getHomeLocation(Location &location);
  */
 void saveNeedleColor(NeedleColor color);
 /**
- * @brief 保存指针颜色
+ * @brief 获取指针颜色
  */
 void getNeedleColor(NeedleColor &color);
+/**
+ * @brief 网页服务开关
+ */
+void setWebServerConfig(bool enable);
+/**
+ * @brief 获取网页服务开关
+ */
+void getWebServerConfig(bool &enable);
+}  // namespace Preference
 
+namespace Compass {
 /**
  * @brief 计算方位角
  * @param latA 目标位置纬度
@@ -28,7 +41,6 @@ void getNeedleColor(NeedleColor &color);
  * @param lonB 当前位置经度
  * @return 方位角
  */
-// float calculateBearing(float latA, float lonA, float latB, float lonB);
 double calculateBearing(double lat1, double lon1, double lat2, double lon2);
 double complexDistance(double lat1, double lon1, double lat2, double lon2);
 
@@ -38,6 +50,19 @@ double simplifiedDistance(double lat1, double lon1, double lat2, double lon2);
  * @brief 校准罗盘
  */
 void calibrateCompass();
+
+/**
+ * @brief 获取当前方位角
+ */
+int getAzimuth();
+
+/**
+ * @brief comass可用
+ */
+bool isCompassAvailable();
+
+}  // namespace Compass
+
 /**
  * @brief 显示任务
  */
@@ -50,6 +75,8 @@ void locationTask(void *pvParameters);
  * @brief 按钮任务
  */
 void buttonTask(void *pvParameters);
+
+namespace Pixel {
 /**
  * @brief 丢失方位
  */
@@ -115,6 +142,9 @@ void showServerSpawn();
  * @brief 服务器信息
  */
 void showServerInfo();
+}  // namespace Pixel
+
+namespace CompassServer {
 /**
  * @brief 初始化服务器相关
  */
@@ -131,11 +161,6 @@ void endWebServer();
 bool shouldStopServer();
 
 /**
- * @brief 初始化蓝牙
- */
-void initBleServer();
-void ble_loop();
-/**
  * @brief 开启热点
  */
 void localHotspot(const char *ssid = "The Lost Compass");
@@ -144,3 +169,13 @@ void localHotspot(const char *ssid = "The Lost Compass");
  * @brief 关闭热点
  */
 void stopHotspot();
+}  // namespace Server
+
+namespace CompassBLE {
+
+/**
+ * @brief 初始化蓝牙
+ */
+void initBleServer();
+void bleLoop();
+}  // namespace Bluetooth

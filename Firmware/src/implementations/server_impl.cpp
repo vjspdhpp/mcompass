@@ -12,8 +12,10 @@
 #include "common.h"
 #include "func.h"
 #include "macro_def.h"
+
 static AsyncWebServer server(80);
 const char *PARAM_MESSAGE = "message";
+const char *TAG = "WEBServer";
 extern CompassState deviceState;
 // 是否有客户端进行连接, 1分钟没有客户端连接关闭Server
 bool clientConnected = false;
@@ -57,13 +59,13 @@ static void apis(void) {
         String color = request->getParam("color")->value();
         char *endptr;
         hexRgb = strtol(color.c_str() + 1, &endptr, 16);
-        Serial.printf("setIndex(%d) with color(%06X)\n", index, hexRgb);
+        ESP_LOGI(TAG, "setIndex(%d) with color(%06X)\n", index, hexRgb);
         // 解析失败还原指针颜色
         if (endptr == color.c_str() + 1) {
           hexRgb = DEFAULT_NEEDLE_COLOR;
         }
       }
-      showFrame(index, hexRgb);
+      Pixel::showFrame(index, hexRgb);
       request->send(200, "text/plain", "OK");
     } else {
       request->send(400, "text/plain", "Missing index parameter");
@@ -72,26 +74,7 @@ static void apis(void) {
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     deviceState = STATE_SERVER_INFO;
-    String buildDate = __DATE__;
-    String buildTime = __TIME__;
-#ifdef BUILD_VERSION
-    String buildVersion = BUILD_VERSION;
-#else
-    String buildVersion = "UNKNOWN";
-#endif
-    String gitBranch = "UNKNOWN";
-#ifdef GIT_BRANCH
-    gitBranch = GIT_BRANCH;
-#endif
-    String gitCommit = "UNKNOWN";
-#ifdef GIT_COMMIT
-    gitCommit = GIT_COMMIT;
-#endif
-    request->send(200, "text/json",
-                  "{\"buildDate\":\"" + buildDate + "\",\"buildTime\":\"" +
-                      buildTime + "\",\"buildVersion\":\"" + buildVersion +
-                      "\",\"gitBranch\":\"" + gitBranch +
-                      "\",\"gitCommit\":\"" + gitCommit + "\"}");
+    request->send(200, "text/json", INFO_JSON);
   });
 
   server.on("/spawn", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -101,7 +84,7 @@ static void apis(void) {
         .latitude = 0.0f,
         .longitude = 0.0f,
     };
-    getHomeLocation(location);
+    Preference::getHomeLocation(location);
     request->send(200, "text/json",
                   "{\"latitude\":\"" + String(location.latitude, 6) +
                       "\",\"longitude\":\"" + String(location.longitude, 6) +
@@ -119,8 +102,8 @@ static void apis(void) {
         request->send(400, "text/plain", "Failed to parse color value.");
         return;
       }
-      Serial.printf("setColor to %06X\n", hexRgb);
-      showSolid(hexRgb);
+      ESP_LOGI(TAG, "setColor to %06X\n", hexRgb);
+      Pixel::showSolid(hexRgb);
       request->send(200);
     }
   });
@@ -130,7 +113,7 @@ static void apis(void) {
     if (request->hasParam("azimuth")) {
       float azimuth = request->getParam("azimuth")->value().toFloat();
       deviceState = STATE_GAME_COMPASS;
-      showFrameByAzimuth(azimuth);
+      Pixel::showFrameByAzimuth(azimuth);
       request->send(200);
     }
   });
@@ -143,11 +126,11 @@ static void apis(void) {
       if (latitude >= -90 && latitude <= 90 && longitude >= -180 &&
           longitude <= 180) {
         // 坐标不合法, 拒绝修改
-        Serial.printf("Spawn Location Error\n");
+        ESP_LOGE(TAG, "Spawn Location Error\n");
         request->send(400);
       }
       Location location = {.latitude = latitude, .longitude = longitude};
-      saveHomeLocation(location);
+      Preference::saveHomeLocation(location);
       request->send(200);
     }
   });
@@ -156,16 +139,16 @@ static void apis(void) {
     deviceState = STATE_SERVER_WIFI;
     String ssid = WiFi.SSID();
     String password = WiFi.psk();
-    request->send(200, "text/json",
-                  "{\"ssid\":\"" + ssid + "\",\"password\":\"" + password +
-                      "\"}");
+    request->send(
+        200, "text/json",
+        "{\"ssid\":\"" + ssid + "\",\"password\":\"" + password + "\"}");
   });
   server.on("/setWiFi", HTTP_POST, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     if (request->hasParam("ssid") && request->hasParam("password")) {
       String ssid = request->getParam("ssid")->value();
       String password = request->getParam("password")->value();
-      Serial.printf("setWiFi: %s %s\n", ssid.c_str(), password.c_str());
+      ESP_LOGI(TAG, "setWiFi: %s %s\n", ssid.c_str(), password.c_str());
       Preferences preferences;
       preferences.begin("wifi", false);
       preferences.putString("ssid", ssid);
@@ -178,34 +161,34 @@ static void apis(void) {
   });
 }
 
-void localHotspot(const char *ssid) {
-  Serial.println("Starting local hotspot");
+void CompassServer::localHotspot(const char *ssid) {
+  ESP_LOGI(TAG, "Starting local hotspot");
   WiFi.softAP(ssid, "");
-  Serial.println("Local hotspot started");
+  ESP_LOGI(TAG, "Local hotspot started");
 }
 
-void stopHotspot() {
+void CompassServer::stopHotspot() {
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
 }
 
 static void launchServer(const char *defaultFile) {
-  if (!MDNS.begin("esp32")) { // Set the hostname to "esp32.local"
-    Serial.println("Error setting up MDNS responder!");
+  if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
+    ESP_LOGE(TAG, "Error setting up MDNS responder!");
     while (1) {
       delay(1000);
     }
   }
-  Serial.println("Launching server");
+  ESP_LOGI(TAG, "Launching server");
   server.serveStatic("/", LittleFS, "/").setDefaultFile(defaultFile);
   server.onNotFound(notFound);
   server.begin();
-  Serial.println("Server launched");
+  ESP_LOGI(TAG, "Server launched");
   apis();
 }
 
-void setupServer() {
-  Serial.println("Setting up server");
+void CompassServer::setupServer() {
+  ESP_LOGI(TAG, "Setting up server");
   // 获取储存的WiFi配置
   Preferences preferences;
   preferences.begin("wifi", false);
@@ -217,7 +200,7 @@ void setupServer() {
   // 没有WiFi配置无条件开启热点
   if (ssid.isEmpty()) {
     deviceState = STATE_HOTSPOT;
-    Serial.println("No WiFi credentials found");
+    ESP_LOGI(TAG, "No WiFi credentials found");
     localHotspot();
     launchServer("default.html");
     return;
@@ -225,11 +208,11 @@ void setupServer() {
   bool plugged = false;
   // 没有接入USB, 只会尝试连接3秒的WiFi, 连接不上就会建立配置热点
   if (isPluggedUSB() == 1) {
-    Serial.println("USB plugged.");
+    ESP_LOGI(TAG, "USB plugged.");
     plugged = true;
   }
 
-  Serial.printf("Connecting to %s\n", ssid.c_str());
+  ESP_LOGI(TAG, "Connecting to %s\n", ssid.c_str());
   WiFi.mode(WIFI_AP_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
   deviceState = STATE_CONNECT_WIFI;
@@ -248,20 +231,19 @@ void setupServer() {
   if (WiFi.status() != WL_CONNECTED) {
     localHotspot("Your Compass");
   }
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP());
   launchServer("index.html");
   MDNS.addService("http", "tcp", 80);
   serverEnable = true;
 }
 
-bool shouldStopServer() {
+bool CompassServer::shouldStopServer() {
   return !clientConnected && WiFi.status() != WL_CONNECTED;
 }
 
-void endWebServer() {
+void CompassServer::endWebServer() {
   if (serverEnable) {
-    Serial.println("endWebServer");
+    ESP_LOGI(TAG, "endWebServer");
     server.end();
     serverEnable = false;
   }

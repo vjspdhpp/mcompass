@@ -1,6 +1,7 @@
 #include <NimBLEDevice.h>
 
 #include "func.h"
+#include "macro_def.h"
 
 /* 基础配置 */
 #define BASE_SERVICE_UUID (uint16_t)0xf900
@@ -13,6 +14,8 @@
 #define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
 #define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID (uint16_t)0xfa01  // 虚拟坐标
 #define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID (uint16_t)0xfa02  // 虚拟方位角
+#define WEB_SERVER_CHARACHTERISTIC_UUID \
+  (uint16_t)0xfa03  // 启用服务器API和网页服务
 
 // uuid2string
 #define UUID2String(uuid)                                                 \
@@ -26,133 +29,158 @@
 
 extern NimBLEServer *pServer;
 
-static String generateInfoJson() {
-  String buildDate = __DATE__;
-  String buildTime = __TIME__;
-#ifdef BUILD_VERSION
-  String buildVersion = BUILD_VERSION;
-#else
-  String buildVersion = "UNKNOWN";
-#endif
-  String gitBranch = "UNKNOWN";
-#ifdef GIT_BRANCH
-  gitBranch = GIT_BRANCH;
-#endif
-  String gitCommit = "UNKNOWN";
-#ifdef GIT_COMMIT
-  gitCommit = GIT_COMMIT;
-#endif
-  return String("{\"buildDate\":\"" + buildDate + "\",\"buildTime\":\"" +
-                buildTime + "\",\"buildVersion\":\"" + buildVersion +
-                "\",\"gitBranch\":\"" + gitBranch + "\",\"gitCommit\":\"" +
-                gitCommit + "\"}");
+static const char *TAG = "Bluetooth";
+
+static std::vector<std::string> split(std::string &s,
+                                      const std::string &delimiter) {
+  std::vector<std::string> tokens;
+  size_t pos = 0;
+  std::string token;
+  while ((pos = s.find(delimiter)) != std::string::npos) {
+    token = s.substr(0, pos);
+    tokens.push_back(token);
+    s.erase(0, pos + delimiter.length());
+  }
+  tokens.push_back(s);
+
+  return tokens;
 }
-float lat = 0.0f;
-float lon = 0.0f;
+
+/**  None of these are required as they will be handled by the library with
+ *defaults. **
+ **                       Remove as you see fit for your needs */
+class ServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo) override {
+    ESP_LOGI(TAG, "Client address: %s\n", connInfo.getAddress().toString());
+    pServer->updateConnParams(connInfo.getConnHandle(), 24, 48, 0, 100);
+  }
+
+  void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo,
+                    int reason) override {
+    ESP_LOGI(TAG, "Client disconnected - start advertising\n");
+    NimBLEDevice::startAdvertising();
+  }
+
+  void onMTUChange(uint16_t MTU, NimBLEConnInfo &connInfo) override {
+    ESP_LOGI(TAG, "MTU updated: %u for connection ID: %u\n", MTU,
+             connInfo.getConnHandle());
+  }
+
+} serverCallbacks;
+
 /** Handler class for characteristic actions */
 class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   void onRead(NimBLECharacteristic *pCharacteristic,
               NimBLEConnInfo &connInfo) override {
+    std::string characteristic = "Unknown";
     if (pCharacteristic->getUUID().equals(
             NimBLEUUID(SPAWN_CHARACTERISTIC_UUID))) {
-      Serial.print("SPAWN: onRead");
+      characteristic = "Spawn";
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(COLOR_CHARACTERISITC_UUID))) {
-      Serial.print("COLOR: onRead");
+      characteristic = "Color";
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID))) {
-      Serial.print("AZIMUTH: onRead");
+      characteristic = "Azimuth";
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(INFO_CHARACTERISTIC_UUID))) {
-      Serial.print("INFO: onRead");
-    } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(VIRTUAL_LOCATION_CHARACHTERISTIC_UUID))) {
-      Serial.print("VIRTUAL: onRead");
-    } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID))) {
-      Serial.print("VIRTUAL_AZIMUTH: onRead");
-    } else {
-      Serial.print("UNKNOWN: onRead");
+      characteristic = "Info";
     }
-    Serial.printf(", value: %s\n", pCharacteristic->getValue().c_str());
+    ESP_LOGI(TAG, "%s onRead, value: %s", characteristic,
+             pCharacteristic->getValue().c_str());
   }
 
   void onWrite(NimBLECharacteristic *pCharacteristic,
                NimBLEConnInfo &connInfo) override {
     if (pCharacteristic->getUUID().equals(
             NimBLEUUID(SPAWN_CHARACTERISTIC_UUID))) {
-      Serial.print("SPAWN: onWrite - ");
-
       // 获取写入的数据
       std::string value = pCharacteristic->getValue();
-      Serial.println("Received data: " + String(value.c_str()));
-
+      ESP_LOGI(TAG, "Spawn onWrite, Received data:%s ", value.c_str());
       // 解析经度和纬度
       float longitude = 0.0f;
       float latitude = 0.0f;
       bool parseSuccess = false;
-
-      // 查找逗号分隔符
       size_t commaIndex = value.find(',');
       if (commaIndex != std::string::npos) {
-        // 提取经度部分
         std::string longitudeStr = value.substr(0, commaIndex);
-        // 提取纬度部分
         std::string latitudeStr = value.substr(commaIndex + 1);
-
-        // 将字符串转换为浮点数
         try {
           longitude = std::stof(longitudeStr);
           latitude = std::stof(latitudeStr);
           parseSuccess = true;
         } catch (const std::invalid_argument &e) {
-          Serial.println("Error: Invalid number format");
+          ESP_LOGE(TAG, "Error: Invalid number format");
         } catch (const std::out_of_range &e) {
-          Serial.println("Error: Number out of range");
+          ESP_LOGE(TAG, "Error: Number out of range");
         }
       } else {
-        Serial.println("Error: Invalid format, expected 'xxx,yyy'");
+        ESP_LOGE(TAG, "Error: Invalid format, expected 'xxx,yyy'");
       }
 
-      // 如果解析成功，打印经度和纬度
+      // 打印经度和纬度
       if (parseSuccess) {
-        Serial.print("Longitude: ");
-        Serial.println(longitude, 6);  // 打印 6 位小数
-        Serial.print("Latitude: ");
-        Serial.println(latitude, 6);  // 打印 6 位小数
+        ESP_LOGI(TAG, "Save Longitude: %.6f, Latitude:%.6f", longitude,
+                 latitude);
+        Location location = {
+            .latitude = latitude,
+            .longitude = longitude,
+        };
+        Preference::saveHomeLocation(location);
       }
-      Location location = {
-          .latitude = latitude,
-          .longitude = longitude,
-      };
-      saveHomeLocation(location);
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(COLOR_CHARACTERISITC_UUID))) {
-      Serial.print("COLOR: onWrite");
-    } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID))) {
-      Serial.print("AZIMUTH: onWrite");
-    } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(INFO_CHARACTERISTIC_UUID))) {
-      Serial.print("INFO: onWrite");
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Color onWrite, Received data: %s", value.c_str());
+      std::vector<std::string> colors = split(value, ",");
+      if (colors.size() == 1) {
+        NeedleColor color;
+        Preference::getNeedleColor(color);
+        char *endptr;
+        int southColor = strtol(colors[0].c_str(), &endptr, 16);
+        if (endptr == colors[0].c_str() + 1) {
+          color.southColor = southColor;
+        }
+        Preference::saveNeedleColor(color);
+      } else if (colors.size() >= 2) {
+        char *endptr;
+        int southColor = strtol(colors[0].c_str(), &endptr, 16);
+        NeedleColor color;
+        Preference::getNeedleColor(color);
+        if (endptr == colors[0].c_str()) {
+          ESP_LOGE(TAG, "Failed to parse southColor value");
+        } else {
+          color.southColor = southColor;
+        }
+        int spawnColor = strtol(colors[1].c_str(), &endptr, 16);
+        if (endptr == colors[1].c_str()) {
+          ESP_LOGE(TAG, "Failed to parse spawnColor value");
+        } else {
+          color.spawnColor = spawnColor;
+        }
+        Preference::saveNeedleColor(color);
+      } else {
+        ESP_LOGE(TAG, "Failed to parse NeedleColor value");
+      }
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(VIRTUAL_LOCATION_CHARACHTERISTIC_UUID))) {
-      Serial.print("VIRTUAL: onWrite");
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Virtual Location onWrite, Received data: %s",
+               value.c_str());
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID))) {
-      Serial.print("VIRTUAL: onWrite");
-    } else {
-      Serial.print("UNKNOWN: onWrite");
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Virtual Azimuth onWrite, Received data: %s",
+               value.c_str());
     }
-    Serial.printf(", value: %s\n", pCharacteristic->getValue().c_str());
   }
 
   /**
    *  The value returned in code is the NimBLE host return code.
    */
   void onStatus(NimBLECharacteristic *pCharacteristic, int code) override {
-    Serial.printf("Notification/Indication return code: %d, %s\n", code,
-                  NimBLEUtils::returnCodeToString(code));
+    ESP_LOGI(TAG, "Notification/Indication return code: %d, %s\n", code,
+             NimBLEUtils::returnCodeToString(code));
   }
 
   /** Peer subscribed to notifications/indications */
@@ -173,16 +201,16 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     }
     str += std::string(pCharacteristic->getUUID());
 
-    Serial.printf("%s\n", str.c_str());
+    ESP_LOGI(TAG, "%s\n", str.c_str());
   }
 } chrCallbacks;
 
-void initBleServer() {
+void CompassBLE::initBleServer() {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
   NimBLEDevice::setPower(3);
   pServer = NimBLEDevice::createServer();
-  // pServer->setCallbacks(&serverCallbacks);
+  pServer->setCallbacks(&serverCallbacks);
   // 基础Service
   NimBLEService *baseService =
       pServer->createService(NimBLEUUID(BASE_SERVICE_UUID));
@@ -191,8 +219,8 @@ void initBleServer() {
       NimBLEUUID(COLOR_CHARACTERISITC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   NeedleColor color;
-  getNeedleColor(color);
-  char colorBuffer[24];
+  Preference::getNeedleColor(color);
+  char colorBuffer[24] = {0};
   sprintf(colorBuffer, "%x,%x", color.spawnColor, color.southColor);
   colorChar->setValue(colorBuffer);
   colorChar->setCallbacks(&chrCallbacks);
@@ -207,8 +235,8 @@ void initBleServer() {
       NimBLEUUID(SPAWN_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   Location location;
-  getHomeLocation(location);
-  char locationBuffer[24];
+  Preference::getHomeLocation(location);
+  char locationBuffer[24] = {0};
   sprintf(locationBuffer, "%.6f,%.6f", location.latitude, location.longitude);
   spawnChar->setValue(locationBuffer);
   spawnChar->setCallbacks(&chrCallbacks);
@@ -216,7 +244,7 @@ void initBleServer() {
   NimBLECharacteristic *infoChar = baseService->createCharacteristic(
       NimBLEUUID(INFO_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-  infoChar->setValue(generateInfoJson().c_str());
+  infoChar->setValue(INFO_JSON);
   infoChar->setCallbacks(&chrCallbacks);
 
   // 高级Service
@@ -248,18 +276,16 @@ void initBleServer() {
   pAdvertising->start();
 }
 
-float delta = 0.0f;
-void ble_loop() {
+void CompassBLE::bleLoop() {
   /** Loop here and send notifications to connected peers */
   delay(2000);
-  delta += 0.01f;
   if (pServer->getConnectedCount()) {
     NimBLEService *pSvc =
         pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
     if (pSvc) {
       NimBLECharacteristic *pChr =
           pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
-      pChr->setValue(delta);
+      pChr->setValue(Compass::getAzimuth());
       if (pChr) {
         pChr->notify();
       }

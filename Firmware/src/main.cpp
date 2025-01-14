@@ -10,6 +10,7 @@
 #include "func.h"
 #include "macro_def.h"
 
+static const char *TAG = "MAIN";
 extern CRGB leds[NUM_LEDS];
 extern QMC5883LCompass compass;
 TinyGPSPlus gps;
@@ -47,7 +48,7 @@ bool forceTheNether = false;
 
 void setup() {
   // 延时,用于一些特殊情况下能够重新烧录
-  delay(1500);
+  delay(5000);
 #ifdef CONFIG_IDF_TARGET_ESP32C3
   // 配置校准引脚状态
   pinMode(CALIBRATE_PIN, INPUT_PULLUP);
@@ -79,11 +80,11 @@ void setup() {
     }
   }
   if (hasGPS) {
-    Serial.printf("Find GPS Module!\n");
+    ESP_LOGI(TAG, "Find GPS Module!\n");
   } else {
     // 没有GPS的话会默认进入指南模式
     deviceType = CompassType::NorthCompass;
-    Serial.printf("GPS Module Not Found!\n");
+    ESP_LOGW(TAG, "GPS Module Not Found!\n");
   }
 
   // 创建显示任务
@@ -94,11 +95,8 @@ void setup() {
 
   // 获取目标位置
   getHomeLocation(targetLoc);
-  Serial.print("targetLoc.latitude:");
-  Serial.print(targetLoc.latitude);
-  Serial.print(",targetLoc.latitude:");
-  Serial.print(targetLoc.longitude);
-  Serial.println();
+  ESP_LOGI(TAG, "target Location:%f,%f ", targetLoc.latitude,
+           targetLoc.longitude);
   // 初始化罗盘
   compass.init();
   // 校准引脚被按下时候进行校准
@@ -116,10 +114,10 @@ void setup() {
             } else {
               deviceType = CompassType::LocationCompass;
             }
-            Serial.print("Toggle Compass Type to ");
-            Serial.println(deviceType == CompassType::LocationCompass
-                               ? "LocationCompass"
-                               : "NorthCompass");
+            ESP_LOGI(TAG, "Toggle Compass Type to %s",
+                     deviceType == CompassType::LocationCompass
+                         ? "LocationCompass"
+                         : "NorthCompass");
             break;
           }
 
@@ -139,9 +137,9 @@ void setup() {
                 saveHomeLocation(currentLoc);
                 targetLoc.latitude = currentLoc.latitude;
                 targetLoc.longitude = currentLoc.longitude;
-                Serial.println("Set Home");
+                ESP_LOGI(TAG, "Set Home");
               } else {
-                Serial.println("Can't set home");
+                ESP_LOGI(TAG, "Can't set home");
               }
             } else {
               // 指南针模式下长按切换到theNether
@@ -150,9 +148,9 @@ void setup() {
             break;
           }
           case CompassState::STATE_CONNECT_WIFI: {
-            Serial.println("Clear WiFi");
+            ESP_LOGW(TAG, "Clear WiFi");
             // 清空WiFi配置
-            Preferences preferences;
+            Preference preferences;
             preferences.begin("wifi", false);
             preferences.putString("ssid", "");
             preferences.putString("password", "");
@@ -170,8 +168,8 @@ void setup() {
   setupServer();
 #elif CONFIG_IDF_TARGET_ESP32S3
   Serial.begin(115200);
-  Serial.println("NIMBLE!");
-  initBleServer();
+  ESP_LOGI(TAG, "NIMBLE!");
+  CompassBLE::initBleServer();
 #endif
 }
 
@@ -184,13 +182,13 @@ void loop() {
   // // 启动后60秒内没有检测到GPS模块, 关闭GPS的TASK
   // if (millis() > 60 * 1000L && !hasGPS) {
   //   if (gpsTask != NULL) {
-  //     Serial.printf("Delete GPS Task\n");
+  //     ESP_LOGI(TAG,"Delete GPS Task");
   //     vTaskDelete(gpsTask);
   //     gpsTask = NULL;
   //   }
   // }
   // serverTimeoutCount++;
-  ble_loop();
+  CompassBLE::bleLoop();
 }
 
 void displayTask(void *pvParameters) {
@@ -199,42 +197,39 @@ void displayTask(void *pvParameters) {
       case STATE_LOST_BEARING:
       case STATE_WAIT_GPS: {
         // 等待GPS数据
-        theNether();
+        Pixel::theNether();
         delay(50);
         continue;
       }
       case STATE_COMPASS: {
-        compass.read();
-        float azimuth = compass.getAzimuth();
+        float azimuth = (float)Compass::getAzimuth();
         if (azimuth < 0) {
           azimuth += 360;
         }
         if (deviceType == CompassType::LocationCompass) {
           // 检测当前坐标是否合法
           if (currentLoc.latitude < 200.0f) {
-            showFrameByLocation(targetLoc.latitude, targetLoc.longitude,
-                                currentLoc.latitude, currentLoc.longitude,
-                                azimuth);
+            Pixel::showFrameByLocation(targetLoc.latitude, targetLoc.longitude,
+                                       currentLoc.latitude,
+                                       currentLoc.longitude, azimuth);
           } else {
-            theNether();
+            Pixel::theNether();
             delay(50);
             continue;
           }
         } else {
-#if DEBUG_DISPLAY
-          Serial.printf("Azimuth = %d\n", azimuth);
-#endif
+          ESP_LOGD(TAG, "Azimuth = %d\n", azimuth);
           if (forceTheNether) {
-            theNether();
+            Pixel::theNether();
           } else {
-            showFrameByAzimuth(360 - azimuth);
+            Pixel::showFrameByAzimuth(360 - azimuth);
           }
         }
         delay(50);
         break;
       }
       case STATE_CONNECT_WIFI:
-        showFrame(animationFrameIndex, CRGB::Green);
+        Pixel::showFrame(animationFrameIndex, CRGB::Green);
         animationFrameIndex++;
         if (animationFrameIndex > MAX_FRAME_INDEX) {
           animationFrameIndex = 0;
@@ -242,24 +237,23 @@ void displayTask(void *pvParameters) {
         delay(30);
         break;
       case STATE_SERVER_COLORS: {
-        // showServerColors();
         delay(50);
         break;
       }
       case STATE_SERVER_WIFI: {
-        showServerWifi();
+        Pixel::showServerWifi();
         break;
       }
       case STATE_SERVER_SPAWN: {
-        showServerSpawn();
+        Pixel::showServerSpawn();
         break;
       }
       case STATE_SERVER_INFO: {
-        showServerInfo();
+        Pixel::showServerInfo();
         break;
       }
       case STATE_HOTSPOT: {
-        showFrame(animationFrameIndex, CRGB::Yellow);
+        Pixel::showFrame(animationFrameIndex, CRGB::Yellow);
         animationFrameIndex++;
         if (animationFrameIndex > MAX_FRAME_INDEX) {
           animationFrameIndex = 0;
@@ -283,36 +277,27 @@ void locationTask(void *pvParameters) {
   while (1) {
     while (GPSSerial.available() > 0) {
       char t = GPSSerial.read();
-#if DEBUG_DISPLAY
-      Serial.print(t);
-#endif
       if (gps.encode(t)) {
         // 有效的GPS编码数据
         hasGPS = true;
-#if DEBUG_DISPLAY
-        Serial.print("Location: ");
-#endif
         if (gps.location.isValid()) {
-#if DEBUG_DISPLAY
-          Serial.print(gps.location.lat(), 6);
-          Serial.print(",");
-          Serial.print(gps.location.lng(), 6);
-#endif
+          ESP_LOGD(TAG, "Location:  %f, %f", gps.location.lat(),
+                   gps.location.lng());
           // 坐标有效情况下更新本地坐标
           currentLoc.latitude = static_cast<float>(gps.location.lat());
           currentLoc.longitude = static_cast<float>(gps.location.lng());
           // 计算两地距离
-          double distance =
-              complexDistance(currentLoc.latitude, currentLoc.longitude,
-                              targetLoc.latitude, targetLoc.longitude);
-          Serial.printf("%f km to target.\n", distance);
+          double distance = Compass::complexDistance(
+              currentLoc.latitude, currentLoc.longitude, targetLoc.latitude,
+              targetLoc.longitude);
+          ESP_LOGI(TAG, "%f km to target.\n", distance);
           // 获取最接近的临界值
           float threshholdDistance = 0;
           size_t sleepConfigSize = sizeof(sleepConfigs) / sizeof(SleepConfig);
           for (int i = sleepConfigSize - 1; i >= 0; i--) {
             if (distance >= sleepConfigs[i].distanceThreshold) {
               threshholdDistance = sleepConfigs[i].distanceThreshold;
-              Serial.printf("use threshold %f km.\n", threshholdDistance);
+              ESP_LOGI(TAG, "use threshold %f km", threshholdDistance);
               break;
             }
           }
@@ -326,57 +311,31 @@ void locationTask(void *pvParameters) {
               } else {
                 digitalWrite(GPS_EN_PIN, HIGH);
               }
-              Serial.printf("GPS Sleep %d seconds\n", gpsSleepInterval);
+              ESP_LOGI(TAG, "GPS Sleep %d seconds\n", gpsSleepInterval);
               break;
             }
           }
         }
       } else {
-#if DEBUG_DISPLAY
-        Serial.print("INVALID");
-#endif
+        ESP_LOGD(TAG, "INVALID GPS DATA");
       }
 
-#if DEBUG_DISPLAY
-      Serial.print("  Date/Time: ");
       if (gps.date.isValid()) {
-        Serial.print(gps.date.month());
-        Serial.print("/");
-        Serial.print(gps.date.day());
-        Serial.print("/");
-        Serial.print(gps.date.year());
-      } else {
-        Serial.print("INVALID");
+        ESP_LOGD(TAG, "Date:  %d/%d/%d", gps.date.year(), gps.date.month(),
+                 gps.date.day());
       }
-
-      Serial.print(" ");
       if (gps.time.isValid()) {
-        if (gps.time.hour() < 10) Serial.print("0");
-        Serial.print(gps.time.hour());
-        Serial.print(":");
-        if (gps.time.minute() < 10) Serial.print("0");
-        Serial.print(gps.time.minute());
-        Serial.print(":");
-        if (gps.time.second() < 10) Serial.print("0");
-        Serial.print(gps.time.second());
-        Serial.print(".");
-        if (gps.time.centisecond() < 10) Serial.print("0");
-        Serial.print(gps.time.centisecond());
-      } else {
-        Serial.print("INVALID");
+        ESP_LOGD(TAG, "Time:  %d/%d/%d.%d", gps.time.hour(), gps.time.minute(),
+                 gps.time.second(), gps.time.centisecond());
       }
-      Serial.println();
-#endif
-      // Serial.println("available()");
+      if (gpsSleepInterval == 0) {
+        digitalWrite(GPS_EN_PIN, LOW);
+        gpsSleepInterval = 60 * 60;
+      } else {
+        gpsSleepInterval--;
+      }
+      delay(1000);
     }
-    if (gpsSleepInterval == 0) {
-      digitalWrite(GPS_EN_PIN, LOW);
-      gpsSleepInterval = 60 * 60;
-    } else {
-      gpsSleepInterval--;
-    }
-    // esp_task_wdt_reset(); // 定期喂狗
-    delay(1000);
   }
 }
 

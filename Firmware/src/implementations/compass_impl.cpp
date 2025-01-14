@@ -3,11 +3,15 @@
 
 #include "func.h"
 
+
 #define EARTH_RADIUS 6371.0  // 地球半径（单位：公里）
 
 QMC5883LCompass compass;
 
-void calibrateCompass() {
+static bool compassAvailable = false;
+
+void Compass::calibrateCompass() {
+  if (!compassAvailable) return;
   compass.calibrate();
   Serial.println();
   Serial.print("compass.setCalibrationOffsets(");
@@ -35,10 +39,10 @@ void calibrateCompass() {
 /// https://johnnyqian.net/blog/gps-locator.html
 
 // 将角度转换为弧度
-double toRadians(double degrees) { return degrees * PI / 180.0; }
+static double toRadians(double degrees) { return degrees * PI / 180.0; }
 
 // 计算两点之间的方位角
-double calculateBearing(double lat1, double lon1, double lat2, double lon2) {
+double Compass::calculateBearing(double lat1, double lon1, double lat2, double lon2) {
   double radLat1 = toRadians(lat1);
   double radLat2 = toRadians(lat2);
   double radLon1 = toRadians(lon1);
@@ -82,7 +86,7 @@ double calculateBearing(double lat1, double lon1, double lat2, double lon2) {
 }
 
 // 使用Haversine公式计算两点间的球面距离
-double complexDistance(double lat1, double lon1, double lat2, double lon2) {
+double Compass::complexDistance(double lat1, double lon1, double lat2, double lon2) {
   double dLat = toRadians(lat2 - lat1);
   double dLon = toRadians(lon2 - lon1);
 
@@ -95,10 +99,22 @@ double complexDistance(double lat1, double lon1, double lat2, double lon2) {
   return 2 * EARTH_RADIUS * atan2(sqrt(a), sqrt(1 - a));
 }
 
-double simplifiedDistance(double lat1, double lon1, double lat2, double lon2) {
+double Compass::simplifiedDistance(double lat1, double lon1, double lat2, double lon2) {
   double avgLat = toRadians(lat1 + lat2) / 2.0;
   double disLat = EARTH_RADIUS * cos(avgLat) * toRadians(lon1 - lon2);
   double disLon = EARTH_RADIUS * toRadians(lat1 - lat2);
 
   return sqrt(disLat * disLat + disLon * disLon);
 }
+
+/**
+ * @brief 获取当前方位角
+ */
+
+int Compass::getAzimuth() {
+  if (!compassAvailable) return 0;
+  compass.read();
+  return compass.getAzimuth();
+}
+
+bool Compass::isCompassAvailable() { return compassAvailable; }

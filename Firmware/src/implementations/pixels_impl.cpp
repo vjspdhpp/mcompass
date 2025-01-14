@@ -7,14 +7,14 @@
 CRGB leds[NUM_LEDS];
 
 [[deprecated]]
-void lostBearing() {
+void Pixel::lostBearing() {
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = frames[27][i];
   }
   FastLED.show();
 }
 
-void theNether() {
+void Pixel::theNether() {
   // 当前帧索引
   static int curIndex = 0;
   // 目标帧索引
@@ -40,13 +40,14 @@ void theNether() {
   }
 }
 
-void showFrame(int index, int overrideColor) {
+void Pixel::showFrame(int index, int overrideColor) {
   // Serial.printf("showFrame: relative index=%f,", index);
   static uint32_t color = 0;
   color = overrideColor;
   for (int i = 0; i < NUM_LEDS; i++) {
     // TODO("这里应该使用一个指针数据的模板来设置颜色")
-    leds[i] = frames[index][i] == DEFAULT_NEEDLE_COLOR || frames[index][i] == 0xcb1a1a ||
+    leds[i] = frames[index][i] == DEFAULT_NEEDLE_COLOR ||
+                      frames[index][i] == 0xcb1a1a ||
                       frames[index][i] == 0xbe1515
                   ? color
                   : frames[index][i];
@@ -54,7 +55,7 @@ void showFrame(int index, int overrideColor) {
   FastLED.show();
 }
 
-void showFrameByAzimuth(float azimuth) {
+void Pixel::showFrameByAzimuth(float azimuth) {
   if (azimuth < 0 || azimuth > 360) {
     // 不响应不合法的方位角
     return;
@@ -90,12 +91,13 @@ void showFrameByAzimuth(float azimuth) {
   // 限制边界
   index = min(MAX_FRAME_INDEX, index);
   index = max(0, index);
-  // Serial.printf("showFrameByAzimuth: relative azimuth=%f, index=%d\n", azimuth,
+  // Serial.printf("showFrameByAzimuth: relative azimuth=%f, index=%d\n",
+  // azimuth,
   //               index);
   showFrame(index);
 }
 
-void showFrameByBearing(float bearing, int azimuth) {
+void Pixel::showFrameByBearing(float bearing, int azimuth) {
   // 当前方位角对应的索引
   int aIndex = (int)(azimuth / 360.0 * MAX_FRAME_INDEX);
   // 目标方位角对应的索引
@@ -111,55 +113,16 @@ void showFrameByBearing(float bearing, int azimuth) {
   showFrameByAzimuth(degree);
 }
 
-void showFrameByLocation(float latA, float lonA, float latB, float lonB,
-                         int azimuth) {
+void Pixel::showFrameByLocation(float latA, float lonA, float latB, float lonB,
+                                int azimuth) {
   // Serial.printf("showFrameByLocation:azimuth=%d\n", azimuth);
-  float bearing = calculateBearing(latA, lonA, latB, lonB);
+  float bearing = Compass::calculateBearing(latA, lonA, latB, lonB);
   showFrameByBearing(bearing, azimuth);
 }
 
-[[deprecated]]
-void showHotspot() {
-  FastLED.clear();
-  static int blink = 0;
-  if (blink == 0) {
-    fill_solid(leds, NUM_LEDS, CRGB::Yellow);
-  } else {
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-  }
-  FastLED.show();
-  delay(1000);
-  blink = 1 - blink;
-}
-
-[[deprecated]]
-void showConnectingWifi() {
-  FastLED.clear();
-  static int index = 0;
-  for (int i = 0; i < index; i++) {
-    leds[i] = CRGB::Green;
-  }
-  index += 1;
-  if (index > NUM_LEDS) {
-    index = 0;
-  }
-  FastLED.show();
-  delay(100);
-}
-
-void showSolid(int color) {
+void Pixel::showSolid(int color) {
   fill_solid(leds, NUM_LEDS, CRGB(color));
   FastLED.show();
-}
-
-[[deprecated]]
-void showServerColors() {
-  // 彩虹色
-  static int hue = 0;
-  fill_rainbow(leds, NUM_LEDS, hue, 1);
-  FastLED.show();
-  hue += 1;
-  delay(16);
 }
 
 static void showBouncing(int color) {
@@ -179,7 +142,7 @@ static void showBouncing(int color) {
     float distance = abs(i - index);
     // Use gaussian/normal distribution formula
     float brightness = 255 * exp(-(distance * distance) /
-                                 (2 * 1.5)); // sigma=1.5 controls spread
+                                 (2 * 1.5));  // sigma=1.5 controls spread
 
     leds[indexes[i]] = color;
     // Apply calculated brightness
@@ -191,17 +154,17 @@ static void showBouncing(int color) {
   FastLED.show();
 }
 
-void showServerWifi() {
+void Pixel::showServerWifi() {
   showBouncing(CRGB::Green);
   delay(100);
 }
 
-void showServerSpawn() {
+void Pixel::showServerSpawn() {
   showBouncing(CRGB::Blue);
   delay(100);
 }
 
-void showServerInfo() {
+void Pixel::showServerInfo() {
   showBouncing(CRGB::Red);
   delay(100);
 }
