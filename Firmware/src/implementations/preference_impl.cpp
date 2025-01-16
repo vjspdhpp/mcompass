@@ -3,32 +3,42 @@
 #include "func.h"
 #include "macro_def.h"
 
+#define PREFERENCE_NAME "mcompass"  // 配置文件名称
+
+#define LATITUDE_KEY "latitude"       // 纬度Key
+#define LONGTITUDE_KEY "longitude"    // 经度Key
+#define SPAWN_COLOR_KEY "spawnColor"  // 出生针颜色
+#define SOUTH_COLOR_KEY "southColor"  // 指南针颜色
+#define SERVER_MODE_KEY "serverMode"  // 配置模式
+#define WIFI_SSID_KEY "SSID"          // WiFi账号
+
 static const char *TAG = "Preference";
 void Preference::saveHomeLocation(Location location) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  preferences.putFloat("latitude", location.latitude);
-  preferences.putFloat("longitude", location.longitude);
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putFloat(LATITUDE_KEY, location.latitude);
+  preferences.putFloat(LONGTITUDE_KEY, location.longitude);
   preferences.end();
 }
 
 void Preference::getHomeLocation(Location &location) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  if (!preferences.isKey("latitude") || !preferences.isKey("longitude")) {
+  preferences.begin(PREFERENCE_NAME, false);
+  if (!preferences.isKey(LATITUDE_KEY) || !preferences.isKey(LONGTITUDE_KEY)) {
+    ESP_LOGE(TAG, "!LATITUDE_KEY !LONGTITUDE_KEY");
     preferences.end();
     return;
   }
-  location.latitude = preferences.getFloat("latitude", 0);
-  location.longitude = preferences.getFloat("longitude", 0);
+  location.latitude = preferences.getFloat(LATITUDE_KEY, 0);
+  location.longitude = preferences.getFloat(LONGTITUDE_KEY, 0);
   preferences.end();
 }
 
 void Preference::saveNeedleColor(NeedleColor color) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  preferences.putInt("spawnColor", color.spawnColor);
-  preferences.putInt("southColor", color.southColor);
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putInt(SPAWN_COLOR_KEY, color.spawnColor);
+  preferences.putInt(SOUTH_COLOR_KEY, color.southColor);
   preferences.end();
   ESP_LOGE(TAG, "spawnColor=%x southColor=%x", color.spawnColor,
            color.southColor);
@@ -36,36 +46,37 @@ void Preference::saveNeedleColor(NeedleColor color) {
 
 void Preference::getNeedleColor(NeedleColor &color) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  if (!preferences.isKey("spawnColor") || !preferences.isKey("southColor")) {
-    ESP_LOGE(TAG, "!spawnColor !southColor");
+  preferences.begin(PREFERENCE_NAME, false);
+  if (!preferences.isKey(SPAWN_COLOR_KEY) ||
+      !preferences.isKey(SOUTH_COLOR_KEY)) {
+    ESP_LOGE(TAG, "!SPAWN_COLOR_KEY !SOUTH_COLOR_KEY");
     color.spawnColor = DEFAULT_NEEDLE_COLOR;
     color.southColor = DEFAULT_NEEDLE_COLOR;
     preferences.end();
     return;
   }
-  color.spawnColor = preferences.getInt("spawnColor", DEFAULT_NEEDLE_COLOR);
-  color.southColor = preferences.getInt("southColor", DEFAULT_NEEDLE_COLOR);
+  color.spawnColor = preferences.getInt(SPAWN_COLOR_KEY, DEFAULT_NEEDLE_COLOR);
+  color.southColor = preferences.getInt(SOUTH_COLOR_KEY, DEFAULT_NEEDLE_COLOR);
   ESP_LOGE(TAG, "spawnColor=%x southColor=%x", color.spawnColor,
            color.southColor);
   preferences.end();
 }
 
-void Preference::setWebServerConfig(bool enable) {
+void Preference::setWebServerConfig(bool useWiFi) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  preferences.putBool("enableWebServer", enable);
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putBool(SERVER_MODE_KEY, useWiFi);
   preferences.end();
 }
 
-void Preference::getWebServerConfig(bool &enable) {
+void Preference::getWebServerConfig(bool &useWiFi) {
   Preferences preferences;
-  preferences.begin("mcompass", false);
-  if (!preferences.isKey("enableWebServer")) {
+  preferences.begin(PREFERENCE_NAME, false);
+  if (!preferences.isKey(SERVER_MODE_KEY)) {
     preferences.end();
-    enable = false;
+    useWiFi = false;
     return;
   }
-  enable = preferences.getBool("enableWebServer", false);
+  useWiFi = preferences.getBool(SERVER_MODE_KEY, false);
   preferences.end();
 }

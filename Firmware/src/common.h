@@ -6,6 +6,7 @@ enum CompassState {
   STATE_WAIT_GPS = 1,        // 等待GPS信号
   STATE_COMPASS = 2,         // 罗盘工作状态
   STATE_CONNECT_WIFI = 3,    // 连接WiFi中
+  STATE_CALIBRATE = 4,       // 校准中
   STATE_SERVER_COLORS = 10,  // 网页颜色选项卡激活
   STATE_SERVER_INDEX,        // 控制指定索引的frame
   STATE_SERVER_WIFI,         // 网页WiFi选项卡激活
@@ -18,7 +19,7 @@ enum CompassState {
 /// @brief 罗盘工作模式
 enum CompassType {
   LocationCompass,  // 地点指针
-  NorthCompass,     // 指南针
+  SouthCompass,     // 指南针
 };
 
 /// @brief 坐标
@@ -38,4 +39,17 @@ struct SleepConfig {
 struct NeedleColor {
   int spawnColor;
   int southColor;
+};
+
+struct Context {
+  CompassState deviceState;
+  CompassState lastDeviceState;
+  CompassType deviceType;
+  bool forceTheNether;  // 强制进入下界
+  bool hasGPS;
+  uint8_t animationFrameIndex;
+  Location targetLoc;
+  Location currentLoc;
+  // 定位任务Handle
+  TaskHandle_t gpsTaskHandle = NULL;
 };

@@ -1,33 +1,26 @@
+#include <Arduino.h>
 #include <QMC5883LCompass.h>
 #include <math.h>
 
 #include "func.h"
 
-
 #define EARTH_RADIUS 6371.0  // 地球半径（单位：公里）
-
+static const char* TAG = "Compass";
 QMC5883LCompass compass;
 
 static bool compassAvailable = false;
 
+void Compass::init(Context* context) {}
+
 void Compass::calibrateCompass() {
   if (!compassAvailable) return;
   compass.calibrate();
-  Serial.println();
-  Serial.print("compass.setCalibrationOffsets(");
-  Serial.print(compass.getCalibrationOffset(0));
-  Serial.print(", ");
-  Serial.print(compass.getCalibrationOffset(1));
-  Serial.print(", ");
-  Serial.print(compass.getCalibrationOffset(2));
-  Serial.println(");");
-  Serial.print("compass.setCalibrationScales(");
-  Serial.print(compass.getCalibrationScale(0));
-  Serial.print(", ");
-  Serial.print(compass.getCalibrationScale(1));
-  Serial.print(", ");
-  Serial.print(compass.getCalibrationScale(2));
-  Serial.println(");");
+  ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
+           compass.getCalibrationOffset(0), compass.getCalibrationOffset(1),
+           compass.getCalibrationOffset(2));
+  ESP_LOGW(TAG, "setCalibrationScales(%f, %f,%f)",
+           compass.getCalibrationScale(0), compass.getCalibrationScale(1),
+           compass.getCalibrationScale(2));
   compass.setCalibrationOffsets(compass.getCalibrationOffset(0),
                                 compass.getCalibrationOffset(1),
                                 compass.getCalibrationOffset(2));
@@ -42,7 +35,8 @@ void Compass::calibrateCompass() {
 static double toRadians(double degrees) { return degrees * PI / 180.0; }
 
 // 计算两点之间的方位角
-double Compass::calculateBearing(double lat1, double lon1, double lat2, double lon2) {
+double Compass::calculateBearing(double lat1, double lon1, double lat2,
+                                 double lon2) {
   double radLat1 = toRadians(lat1);
   double radLat2 = toRadians(lat2);
   double radLon1 = toRadians(lon1);
@@ -77,8 +71,8 @@ double Compass::calculateBearing(double lat1, double lon1, double lat2, double l
     else if (lat2 < lat1)  // y轴负方向
       result = PI;
     else {
-      fprintf(stderr, "Error: 两点不能是同一个位置！\n");
-      exit(EXIT_FAILURE);
+      ESP_LOGW(TAG, "Warning Arriving at the destination Arriving.");
+      result = 0;
     }
   }
 
@@ -86,7 +80,8 @@ double Compass::calculateBearing(double lat1, double lon1, double lat2, double l
 }
 
 // 使用Haversine公式计算两点间的球面距离
-double Compass::complexDistance(double lat1, double lon1, double lat2, double lon2) {
+double Compass::complexDistance(double lat1, double lon1, double lat2,
+                                double lon2) {
   double dLat = toRadians(lat2 - lat1);
   double dLon = toRadians(lon2 - lon1);
 
@@ -99,7 +94,8 @@ double Compass::complexDistance(double lat1, double lon1, double lat2, double lo
   return 2 * EARTH_RADIUS * atan2(sqrt(a), sqrt(1 - a));
 }
 
-double Compass::simplifiedDistance(double lat1, double lon1, double lat2, double lon2) {
+double Compass::simplifiedDistance(double lat1, double lon1, double lat2,
+                                   double lon2) {
   double avgLat = toRadians(lat1 + lat2) / 2.0;
   double disLat = EARTH_RADIUS * cos(avgLat) * toRadians(lon1 - lon2);
   double disLon = EARTH_RADIUS * toRadians(lat1 - lat2);
@@ -114,7 +110,11 @@ double Compass::simplifiedDistance(double lat1, double lon1, double lat2, double
 int Compass::getAzimuth() {
   if (!compassAvailable) return 0;
   compass.read();
-  return compass.getAzimuth();
+  int azimuth = compass.getAzimuth();
+  if (azimuth < 0) {
+    azimuth += 360;
+  }
+  return azimuth;
 }
 
 bool Compass::isCompassAvailable() { return compassAvailable; }

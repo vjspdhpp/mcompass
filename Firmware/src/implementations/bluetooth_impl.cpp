@@ -4,18 +4,28 @@
 #include "macro_def.h"
 
 /* 基础配置 */
-#define BASE_SERVICE_UUID (uint16_t)0xf900
-#define COLOR_CHARACTERISITC_UUID (uint16_t)0xf901   // 指针颜色
-#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)0xf902  // 方位角
-#define SPAWN_CHARACTERISTIC_UUID (uint16_t)0xf903   // 出生点信息
-#define INFO_CHARACTERISTIC_UUID (uint16_t)0xf904    // 设备信息
+#define BASE_SERVICE_UUID (uint16_t)0xf000
+#define COLOR_CHARACTERISITC_UUID (uint16_t)(BASE_SERVICE_UUID + 1)  // 指针颜色
+#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2)  // 方位角
+#define SPAWN_CHARACTERISTIC_UUID \
+  (uint16_t)(BASE_SERVICE_UUID + 3)  // 出生点信息
+#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4)  // 设备信息
+
+/** 设备操作 */
+#define CONTROL_SERVICE_UUID (uint16_t)0xf100
+#define CALIBRATE_CHARACTERISTIC_UUID \
+  (uint16_t)(CONTROL_SERVICE_UUID + 1)  // 请求校准
+#define REBOOT_CHARACTERISTIC_UUID \
+  (uint16_t)(CONTROL_SERVICE_UUID + 2)  // 重启设备
 
 /** 高级配置  */
 #define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
-#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID (uint16_t)0xfa01  // 虚拟坐标
-#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID (uint16_t)0xfa02  // 虚拟方位角
+#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 1)  // 虚拟坐标
+#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 2)  // 虚拟方位角
 #define WEB_SERVER_CHARACHTERISTIC_UUID \
-  (uint16_t)0xfa03  // 启用服务器API和网页服务
+  (uint16_t)(ADVANCED_SERVICE_UUID + 3)  // 启用服务器API和网页服务
 
 // uuid2string
 #define UUID2String(uuid)                                                 \
@@ -27,7 +37,7 @@
    : (uuid) == VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID  ? "VIRTUAL_AZIMUTH"  \
                                                      : "UNKNOWN_UUID")
 
-extern NimBLEServer *pServer;
+static NimBLEServer *pServer;
 
 static const char *TAG = "Bluetooth";
 
@@ -172,6 +182,12 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Virtual Azimuth onWrite, Received data: %s",
                value.c_str());
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(REBOOT_CHARACTERISTIC_UUID))) {
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Reboot onWrite, Received data: %s", value.c_str());
+      delay(1000);
+      esp_restart();
     }
   }
 
@@ -205,7 +221,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   }
 } chrCallbacks;
 
-void CompassBLE::initBleServer() {
+void CompassBLE::init(Context *context) {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
   NimBLEDevice::setPower(3);
@@ -246,6 +262,11 @@ void CompassBLE::initBleServer() {
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   infoChar->setValue(INFO_JSON);
   infoChar->setCallbacks(&chrCallbacks);
+  // 请求校准
+  NimBLECharacteristic *calibrateChar = baseService->createCharacteristic(
+      NimBLEUUID(CALIBRATE_CHARACTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
+  calibrateChar->setValue(INFO_JSON);
+  calibrateChar->setCallbacks(&chrCallbacks);
 
   // 高级Service
   NimBLEService *advancedService =
@@ -274,20 +295,24 @@ void CompassBLE::initBleServer() {
   pAdvertising->addServiceUUID(advancedService->getUUID());
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
+  xTaskCreate(CompassBLE::bleTask, "bleTask", 4096, NULL, 2, NULL);
 }
 
-void CompassBLE::bleLoop() {
-  /** Loop here and send notifications to connected peers */
-  delay(2000);
-  if (pServer->getConnectedCount()) {
-    NimBLEService *pSvc =
-        pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
-    if (pSvc) {
-      NimBLECharacteristic *pChr =
-          pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
-      pChr->setValue(Compass::getAzimuth());
-      if (pChr) {
-        pChr->notify();
+void CompassBLE::bleTask(void *pvParameters) {
+  while (1) {
+    // 蓝牙自己的循环, 用于定时更新电子罗盘角度值.
+    // 1.5s一次.
+    delay(1500);
+    if (pServer->getConnectedCount()) {
+      NimBLEService *pSvc =
+          pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
+      if (pSvc) {
+        NimBLECharacteristic *pChr =
+            pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
+        pChr->setValue(Compass::getAzimuth());
+        if (pChr) {
+          pChr->notify();
+        }
       }
     }
   }

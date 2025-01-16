@@ -8,7 +8,15 @@
 #define CALIBRATE_PIN 9
 #define GPS_EN_PIN 0
 
+// 默认指针颜色
 #define DEFAULT_NEEDLE_COLOR 0xff1414
+
+// 默认连接连接WiFi等待时间 10秒
+#define DEFAULT_WIFI_CONNECT_TIME 10 * 1000
+// 默认无client连接关闭web server时间 120秒
+#define DEFAULT_SERVER_TIMEOUT 2 * 60 * 1000
+// 默认检测不到GPS,关闭GPS供电时间
+#define DEFAULT_GPS_DETECT_TIMEOUT 60 * 1000
 
 #if !defined(BUILD_VERSION)
 #define BUILD_VERSION "UNKNOWN"
@@ -26,3 +34,6 @@
   "{\"buildDate\":\"" __DATE__ "\",\"buildTime\":\"" __TIME__             \
   "\",\"buildVersion\":\"" BUILD_VERSION "\",\"gitBranch\":\"" GIT_BRANCH \
   "\",\"gitCommit\":\"" GIT_COMMIT "\"}"
+
+// 默认初始的坐标值
+#define DEFAULT_INVALID_LOCATION_VALUE 255.0f

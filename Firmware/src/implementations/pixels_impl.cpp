@@ -2,16 +2,28 @@
 
 #include "compass_frames.h"
 #include "func.h"
-#include "macro_def.h"
 
-CRGB leds[NUM_LEDS];
+static CRGB leds[NUM_LEDS];
 
-[[deprecated]]
-void Pixel::lostBearing() {
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = frames[27][i];
+static const char *TAG = "PIXEL";
+
+void Pixel::init(Context *context) {
+  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+  FastLED.setBrightness(128);
+}
+
+void Pixel::bootAnimation(void (*callbackFn)()) {
+  for (int i = 0; i < 59; i++) {
+    showFrameByAzimuth(bootAnimationValues[i], 0xffffff);
+    unsigned long start = millis();
+    if (callbackFn) {
+      callbackFn();
+    }
+    unsigned long cost = millis() - start;
+    if (cost < 30) {
+      delay(30 - cost);
+    }
   }
-  FastLED.show();
 }
 
 void Pixel::theNether() {
@@ -55,7 +67,7 @@ void Pixel::showFrame(int index, int overrideColor) {
   FastLED.show();
 }
 
-void Pixel::showFrameByAzimuth(float azimuth) {
+void Pixel::showFrameByAzimuth(float azimuth, int overrideColor) {
   if (azimuth < 0 || azimuth > 360) {
     // 不响应不合法的方位角
     return;
@@ -91,10 +103,7 @@ void Pixel::showFrameByAzimuth(float azimuth) {
   // 限制边界
   index = min(MAX_FRAME_INDEX, index);
   index = max(0, index);
-  // Serial.printf("showFrameByAzimuth: relative azimuth=%f, index=%d\n",
-  // azimuth,
-  //               index);
-  showFrame(index);
+  showFrame(index, overrideColor);
 }
 
 void Pixel::showFrameByBearing(float bearing, int azimuth) {
@@ -104,8 +113,8 @@ void Pixel::showFrameByBearing(float bearing, int azimuth) {
   int bIndex = (int)(bearing / 360.0 * MAX_FRAME_INDEX);
   // 计算差值
   // int index = aIndex - bIndex;
-  Serial.printf("showFrameByBearing: bearing=%f azimuth=%d \n", bearing,
-                azimuth);
+  ESP_LOGI(TAG, "showFrameByBearing: bearing=%f azimuth=%d \n", bearing,
+           azimuth);
   float degree = bearing - azimuth;
   if (degree < 0) {
     degree += 360;
@@ -115,7 +124,6 @@ void Pixel::showFrameByBearing(float bearing, int azimuth) {
 
 void Pixel::showFrameByLocation(float latA, float lonA, float latB, float lonB,
                                 int azimuth) {
-  // Serial.printf("showFrameByLocation:azimuth=%d\n", azimuth);
   float bearing = Compass::calculateBearing(latA, lonA, latB, lonB);
   showFrameByBearing(bearing, azimuth);
 }
@@ -167,4 +175,81 @@ void Pixel::showServerSpawn() {
 void Pixel::showServerInfo() {
   showBouncing(CRGB::Red);
   delay(100);
+}
+
+void Pixel::pixelTask(void *pvParameters) {
+  Context *context = (Context *)pvParameters;
+  while (1) {
+    switch (context->deviceState) {
+      case STATE_LOST_BEARING:
+      case STATE_WAIT_GPS: {
+        // 等待GPS数据
+        Pixel::theNether();
+        delay(50);
+        continue;
+      }
+      case STATE_COMPASS: {
+        float azimuth = Compass::getAzimuth();
+        if (context->deviceType == CompassType::LocationCompass) {
+          // 检测当前坐标是否合法
+          if (context->currentLoc.latitude != DEFAULT_INVALID_LOCATION_VALUE) {
+            Pixel::showFrameByLocation(context->targetLoc.latitude,
+                                       context->targetLoc.longitude,
+                                       context->currentLoc.latitude,
+                                       context->currentLoc.longitude, azimuth);
+            continue;
+          }
+          Pixel::theNether();
+          delay(50);
+          continue;
+        }
+        ESP_LOGD(TAG, "Azimuth = %d\n", azimuth);
+        context->forceTheNether ? Pixel::theNether()
+                                : Pixel::showFrameByAzimuth(360 - azimuth);
+        delay(50);
+        break;
+      }
+
+      case STATE_CALIBRATE: {
+        Compass::calibrateCompass();
+        break;
+      }
+      case STATE_CONNECT_WIFI:
+        Pixel::showFrame(context->animationFrameIndex, CRGB::Green);
+        context->animationFrameIndex++;
+        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+          context->animationFrameIndex = 0;
+        }
+        delay(30);
+        break;
+      case STATE_SERVER_COLORS: {
+        delay(50);
+        break;
+      }
+      case STATE_SERVER_WIFI: {
+        Pixel::showServerWifi();
+        break;
+      }
+      case STATE_SERVER_SPAWN: {
+        Pixel::showServerSpawn();
+        break;
+      }
+      case STATE_SERVER_INFO: {
+        Pixel::showServerInfo();
+        break;
+      }
+      case STATE_HOTSPOT: {
+        Pixel::showFrame(context->animationFrameIndex, CRGB::Yellow);
+        context->animationFrameIndex++;
+        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+          context->animationFrameIndex = 0;
+        }
+        delay(30);
+        break;
+      }
+      default:
+        delay(50);
+        break;
+    }
+  }
 }

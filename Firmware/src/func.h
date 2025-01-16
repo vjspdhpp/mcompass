@@ -3,7 +3,19 @@
 #include <Arduino.h>
 
 #include "common.h"
+#include "macro_def.h"
 
+namespace Board {
+/**
+ * @brief 板子硬件初始化
+ */
+Context *init();
+void calibrateCheck();
+/**
+ * @brief 按钮任务
+ */
+void buttonTask(void *pvParameters);
+}  // namespace Board
 
 namespace Preference {
 /**
@@ -24,12 +36,13 @@ void saveNeedleColor(NeedleColor color);
 void getNeedleColor(NeedleColor &color);
 /**
  * @brief 网页服务开关
+ * @param useWiFi 使用网页进行配置
  */
-void setWebServerConfig(bool enable);
+void setWebServerConfig(bool useWiFi);
 /**
  * @brief 获取网页服务开关
  */
-void getWebServerConfig(bool &enable);
+void getWebServerConfig(bool &useWiFi);
 }  // namespace Preference
 
 namespace Compass {
@@ -61,22 +74,39 @@ int getAzimuth();
  */
 bool isCompassAvailable();
 
+/**
+ * @brief QMC5883初始化
+ */
+void init(Context *context);
+
 }  // namespace Compass
 
+namespace GPS {
 /**
- * @brief 显示任务
+ * @brief GPS初始化
  */
-void displayTask(void *pvParameters);
+void init(Context *context);
+/**
+ * @brief GPS反初始化
+ */
+void deinit(Context *context);
 /**
  * @brief 位置任务
  */
 void locationTask(void *pvParameters);
-/**
- * @brief 按钮任务
- */
-void buttonTask(void *pvParameters);
+
+}  // namespace GPS
 
 namespace Pixel {
+/**
+ * @brief LED初始化
+ */
+void init(Context *context);
+/**
+ * @brief 启动动画
+ */
+void bootAnimation(void (*callbackFn)() = nullptr);
+
 /**
  * @brief 丢失方位
  */
@@ -90,12 +120,13 @@ void theNether();
  * @param index 帧索引
  * @param overrideColor 重载颜色, 用来覆盖指针颜色, 默认红色指针
  */
-void showFrame(int index, int overrideColor = 0xff1414);
+void showFrame(int index, int overrideColor = DEFAULT_NEEDLE_COLOR);
 /**
  * @brief 根据方位角显示帧
  * @param azimuth 方位角 范围应当是0~360
  */
-void showFrameByAzimuth(float azimuth);
+void showFrameByAzimuth(float azimuth,
+                        int overrideColor = DEFAULT_NEEDLE_COLOR);
 /**
  * @brief 根据方位角显示帧
  * @param bearing 方位角
@@ -142,13 +173,19 @@ void showServerSpawn();
  * @brief 服务器信息
  */
 void showServerInfo();
+
+/**
+ * @brief 显示任务
+ */
+void pixelTask(void *pvParameters);
 }  // namespace Pixel
 
 namespace CompassServer {
+
 /**
- * @brief 初始化服务器相关
+ * @brief Web初始化
  */
-void setupServer();
+void init(Context *context);
 
 /**
  * @brief 关闭本地网页服务
@@ -169,13 +206,13 @@ void localHotspot(const char *ssid = "The Lost Compass");
  * @brief 关闭热点
  */
 void stopHotspot();
-}  // namespace Server
+}  // namespace CompassServer
 
 namespace CompassBLE {
 
 /**
- * @brief 初始化蓝牙
+ * @brief 蓝牙初始化
  */
-void initBleServer();
-void bleLoop();
-}  // namespace Bluetooth
+void init(Context *context);
+void bleTask(void *pvParameters);
+}  // namespace CompassBLE

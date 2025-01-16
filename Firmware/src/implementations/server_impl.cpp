@@ -7,6 +7,7 @@
 #include <LittleFS.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <soc/usb_serial_jtag_reg.h>
 
 #include "common.h"
@@ -16,12 +17,12 @@
 static AsyncWebServer server(80);
 const char *PARAM_MESSAGE = "message";
 const char *TAG = "WEBServer";
-extern CompassState deviceState;
+
 // 是否有客户端进行连接, 1分钟没有客户端连接关闭Server
 bool clientConnected = false;
 // 网页服务工作状态
 bool serverEnable = false;
-
+static Context *ctx = nullptr;
 static int isPluggedUSB(void) {
   uint32_t *aa = (uint32_t *)USB_SERIAL_JTAG_FRAM_NUM_REG;
   uint32_t first = *aa;
@@ -53,7 +54,7 @@ static void apis(void) {
       if (index < 0 || index > MAX_FRAME_INDEX) {
         request->send(400, "text/plain", "index parameter invalid");
       }
-      deviceState = STATE_SERVER_INDEX;
+      ctx->deviceState = STATE_SERVER_INDEX;
       int hexRgb = DEFAULT_NEEDLE_COLOR;
       if (request->getParam("color") != nullptr) {
         String color = request->getParam("color")->value();
@@ -73,13 +74,13 @@ static void apis(void) {
   });
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    deviceState = STATE_SERVER_INFO;
+    ctx->deviceState = STATE_SERVER_INFO;
     request->send(200, "text/json", INFO_JSON);
   });
 
   server.on("/spawn", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    deviceState = STATE_SERVER_SPAWN;
+    ctx->deviceState = STATE_SERVER_SPAWN;
     Location location = {
         .latitude = 0.0f,
         .longitude = 0.0f,
@@ -94,7 +95,7 @@ static void apis(void) {
     clientConnected = true;
     if (request->hasParam("color")) {
       String color = request->getParam("color")->value();
-      deviceState = STATE_SERVER_COLORS;
+      ctx->deviceState = STATE_SERVER_COLORS;
       char *endptr;
       int hexRgb = strtol(color.c_str() + 1, &endptr, 16);
       // 检查解析是否成功
@@ -112,7 +113,7 @@ static void apis(void) {
     clientConnected = true;
     if (request->hasParam("azimuth")) {
       float azimuth = request->getParam("azimuth")->value().toFloat();
-      deviceState = STATE_GAME_COMPASS;
+      ctx->deviceState = STATE_GAME_COMPASS;
       Pixel::showFrameByAzimuth(azimuth);
       request->send(200);
     }
@@ -136,24 +137,24 @@ static void apis(void) {
   });
   server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    deviceState = STATE_SERVER_WIFI;
+    ctx->deviceState = STATE_SERVER_WIFI;
     String ssid = WiFi.SSID();
     String password = WiFi.psk();
-    request->send(
-        200, "text/json",
-        "{\"ssid\":\"" + ssid + "\",\"password\":\"" + password + "\"}");
+    request->send(200, "text/json",
+                  "{\"ssid\":\"" + ssid + "\",\"password\":\"\"}");
   });
   server.on("/setWiFi", HTTP_POST, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     if (request->hasParam("ssid") && request->hasParam("password")) {
       String ssid = request->getParam("ssid")->value();
       String password = request->getParam("password")->value();
-      ESP_LOGI(TAG, "setWiFi: %s %s\n", ssid.c_str(), password.c_str());
-      Preferences preferences;
-      preferences.begin("wifi", false);
-      preferences.putString("ssid", ssid);
-      preferences.putString("password", password);
-      preferences.end();
+      wifi_config_t config;
+      strncpy(reinterpret_cast<char *>(config.sta.ssid), ssid.c_str(),
+              ssid.length());
+      strncpy(reinterpret_cast<char *>(config.sta.password), password.c_str(),
+              password.length());
+      esp_wifi_set_config(WIFI_IF_STA, &config);
+      ESP_LOGD(TAG, "setWiFi: %s, ******\n", ssid.c_str());
       request->send(200);
       delay(3000);
       esp_restart();
@@ -187,45 +188,35 @@ static void launchServer(const char *defaultFile) {
   apis();
 }
 
-void CompassServer::setupServer() {
+void CompassServer::init(Context *context) {
+  ctx = context;
   ESP_LOGI(TAG, "Setting up server");
   // 获取储存的WiFi配置
-  Preferences preferences;
-  preferences.begin("wifi", false);
-  String ssid = preferences.getString("ssid", "");
-  String password = preferences.getString("password", "");
-  preferences.end();
+  wifi_config_t config;
+  esp_wifi_get_config(WIFI_IF_STA, &config);
 
   LittleFS.begin(false, "/littlefs", 32);
   // 没有WiFi配置无条件开启热点
-  if (ssid.isEmpty()) {
-    deviceState = STATE_HOTSPOT;
+  if (strlen(reinterpret_cast<const char *>(config.sta.ssid)) == 0) {
+    ctx->deviceState = STATE_HOTSPOT;
     ESP_LOGI(TAG, "No WiFi credentials found");
     localHotspot();
     launchServer("default.html");
     return;
   }
-  bool plugged = false;
-  // 没有接入USB, 只会尝试连接3秒的WiFi, 连接不上就会建立配置热点
-  if (isPluggedUSB() == 1) {
-    ESP_LOGI(TAG, "USB plugged.");
-    plugged = true;
-  }
-
-  ESP_LOGI(TAG, "Connecting to %s\n", ssid.c_str());
+  ESP_LOGI(TAG, "Connecting to %s\n", config.sta.ssid);
   WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(ssid.c_str(), password.c_str());
-  deviceState = STATE_CONNECT_WIFI;
-  uint8_t tryTimes = 0;
+  WiFi.begin(reinterpret_cast<const char *>(config.sta.ssid),
+             reinterpret_cast<const char *>(config.sta.password));
+  ctx->deviceState = STATE_CONNECT_WIFI;
+  unsigned long begin = millis();
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    tryTimes++;
-    if (!plugged && tryTimes > 6) {
-      // 没有接入USB,切尝试时间超过3秒, 停止连接WiFi循环
+    if (millis() - begin > DEFAULT_WIFI_CONNECT_TIME) {
       break;
     }
   }
-  deviceState = STATE_COMPASS;
+  ctx->deviceState = STATE_COMPASS;
   // 仍然未能连接到WiFi, 开启本地热点showFrameByAzimuth
   // 此时热点名称 Your Compass
   if (WiFi.status() != WL_CONNECTED) {
@@ -246,5 +237,7 @@ void CompassServer::endWebServer() {
     ESP_LOGI(TAG, "endWebServer");
     server.end();
     serverEnable = false;
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
   }
 }
