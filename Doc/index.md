@@ -19,6 +19,10 @@ hero:
     - theme: alt
       text: 更新记录
       link: /update
+    - theme: alt
+      text: 支持本项目
+      link: /donate
+
 
 features:
   - title: 开源
@@ -29,4 +33,3 @@ features:
   - title: 游戏进行联动
     details: 使用MOD和游戏内数据进行同步
 ---
-
