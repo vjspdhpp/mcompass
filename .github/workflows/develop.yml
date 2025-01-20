@@ -1,0 +1,50 @@
+name: Build Firmware Workflow
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Run PlatformIO Action
+        uses: karniv00l/platformio-run-action@e6467e68a40b381568bad448faf0a1413c72fc7f
+        with:
+          environments: "" # Specify environments, e.g., "env1,env2"
+          targets: ""      # Specify targets, e.g., "upload,monitor"
+          project-dir: "./Firmware/"  # Specify project directory
+          project-conf: "" # Specify a custom platformio.ini
+          jobs: ""         # Number of parallel build jobs
+          silent: ""       # true/false
+          verbose: ""      # true/false
+          disable-auto-clean: "" # true/false
+      - name: Build Filesystem
+        run: pio run -t buildfs -v --project-dir ./Firmware/
+      - name: Install esptool.py
+        run: |
+          python3 -m pip install esptool
+      - name: Merge binary files
+        run: |
+          esptool.py --chip esp32 merge_bin \
+          --flash_mode dio \
+          --flash_freq 40m \
+          --flash_size 4MB \
+          0x0000 ./Firmware/.pio/build/airm2m_core_esp32c3/bootloader.bin \
+          0x8000 ./Firmware/.pio/build/airm2m_core_esp32c3/partitions.bin \
+          0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+          0x10000 ./Firmware/.pio/build/airm2m_core_esp32c3/firmware.bin \
+          0x210000 ./Firmware/.pio/build/airm2m_core_esp32c3/littlefs.bin \
+          -o mcompass.bin
+      - name: Get commit hash
+        id: get_commit_hash
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Upload merged firmware
+        uses: actions/upload-artifact@v3
+        with:
+          name: mcompass-${{ env.COMMIT_HASH }}
+          path: mcompass.bin

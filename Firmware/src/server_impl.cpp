@@ -50,6 +50,7 @@ static void apis(void) {
       int index = request->getParam("index")->value().toInt();
       if (index < 0 || index > MAX_FRAME_INDEX) {
         request->send(400, "text/plain", "index parameter invalid");
+        return;
       }
       deviceState = STATE_SERVER_INDEX;
       int hexRgb = DEFAULT_NEEDLE_COLOR;
@@ -142,13 +143,14 @@ static void apis(void) {
       float longitude = request->getParam("longitude")->value().toFloat();
       if (latitude >= -90 && latitude <= 90 && longitude >= -180 &&
           longitude <= 180) {
-        // 坐标不合法, 拒绝修改
-        Serial.printf("Spawn Location Error\n");
-        request->send(400);
+        Location location = {.latitude = latitude, .longitude = longitude};
+        saveHomeLocation(location);
+        request->send(200);
+        return;
       }
-      Location location = {.latitude = latitude, .longitude = longitude};
-      saveHomeLocation(location);
-      request->send(200);
+      // 坐标不合法, 拒绝修改
+      Serial.printf("Spawn Location Error\n");
+      request->send(400);
     }
   });
   server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
