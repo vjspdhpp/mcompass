@@ -8,14 +8,14 @@ static TinyGPSPlus gps;
 static const char *TAG = "GPS";
 // GPS休眠配置表
 static const SleepConfig sleepConfigs[] = {
-    {10.0f, 0, true},          // 在10KM距离内，不休眠
-    {50.0f, 5 * 60, false},    // 超过50KM，休眠5分钟
-    {100.0f, 10 * 60, false},  // 超过100KM，休眠10分钟
-    {200.0f, 15 * 60, false},  // 超过200KM，休眠15分钟
+    {10.0f, 0, true},         // 在10KM距离内，不休眠
+    {50.0f, 5 * 60, false},   // 超过50KM，休眠5分钟
+    {100.0f, 10 * 60, false}, // 超过100KM，休眠10分钟
+    {200.0f, 15 * 60, false}, // 超过200KM，休眠15分钟
 };
 
 // GPS休眠时间
-static uint32_t gpsSleepInterval = 60 * 60;  // 单位:秒
+static uint32_t gpsSleepInterval = 60 * 60; // 单位:秒
 
 void GPS::init(Context *context) {
   // 配置GPS串口
@@ -23,6 +23,11 @@ void GPS::init(Context *context) {
   // 启动GPS,用于GPS存在性检测
   digitalWrite(GPS_EN_PIN, LOW);
 }
+
+/**
+ * @brief GPS 关闭
+ */
+void GPS::disable() { digitalWrite(GPS_EN_PIN, HIGH); }
 
 /**
  * @brief 位置任务
@@ -93,7 +98,8 @@ void GPS::locationTask(void *pvParameters) {
       } else {
         gpsSleepInterval--;
       }
-      delay(1000);
     }
+    delay(1000);
   }
+  delay(1000);
 }

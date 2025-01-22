@@ -6,41 +6,37 @@
 /* 基础配置 */
 #define BASE_SERVICE_UUID (uint16_t)0xf000
 #define COLOR_CHARACTERISITC_UUID (uint16_t)(BASE_SERVICE_UUID + 1)  // 指针颜色
-#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2)  // 方位角
-#define SPAWN_CHARACTERISTIC_UUID \
-  (uint16_t)(BASE_SERVICE_UUID + 3)  // 出生点信息
-#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4)  // 设备信息
+#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2) // 方位角
+#define SPAWN_CHARACTERISTIC_UUID                                              \
+  (uint16_t)(BASE_SERVICE_UUID + 3)                                // 出生点信息
+#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4) // 设备信息
 
 /** 设备操作 */
 #define CONTROL_SERVICE_UUID (uint16_t)0xf100
-#define CALIBRATE_CHARACTERISTIC_UUID \
-  (uint16_t)(CONTROL_SERVICE_UUID + 1)  // 请求校准
-#define REBOOT_CHARACTERISTIC_UUID \
-  (uint16_t)(CONTROL_SERVICE_UUID + 2)  // 重启设备
+#define CALIBRATE_CHARACTERISTIC_UUID                                          \
+  (uint16_t)(CONTROL_SERVICE_UUID + 1) // 请求校准
+#define REBOOT_CHARACTERISTIC_UUID                                             \
+  (uint16_t)(CONTROL_SERVICE_UUID + 2) // 重启设备
 
 /** 高级配置  */
 #define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
-#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 1)  // 虚拟坐标
-#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 2)  // 虚拟方位角
-#define WEB_SERVER_CHARACHTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 3)  // 启用服务器API和网页服务
-
-// uuid2string
-#define UUID2String(uuid)                                                 \
-  ((uuid) == COLOR_CHARACTERISITC_UUID               ? "COLOR"            \
-   : (uuid) == AZIMUTH_CHARACHERSITC_UUID            ? "AZIMUTH"          \
-   : (uuid) == SPAWN_CHARACTERISTIC_UUID             ? "SPAWN"            \
-   : (uuid) == INFO_CHARACTERISTIC_UUID              ? "INFO"             \
-   : (uuid) == VIRTUAL_LOCATION_CHARACHTERISTIC_UUID ? "VIRTUAL_LOCATION" \
-   : (uuid) == VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID  ? "VIRTUAL_AZIMUTH"  \
-                                                     : "UNKNOWN_UUID")
+#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID                                  \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 1) // 虚拟坐标
+#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID                                   \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 2) // 虚拟方位角
+#define WEB_SERVER_CHARACHTERISTIC_UUID                                        \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 3) // 启用服务器API和网页服务
+#define BRIGHTNESS_CHARACHTERISTIC_UUID                                        \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 4) // 亮度控制
 
 static NimBLEServer *pServer;
-
+static TaskHandle_t gloopTaskHandle = NULL;
 static const char *TAG = "Bluetooth";
-
+// 是否有客户端进行连接, 1分钟没有客户端连接关闭Server
+static bool clientConnected = false;
+// 服务工作状态
+static bool serverEnable = false;
+static size_t tick = 0;
 static std::vector<std::string> split(std::string &s,
                                       const std::string &delimiter) {
   std::vector<std::string> tokens;
@@ -62,7 +58,8 @@ static std::vector<std::string> split(std::string &s,
 class ServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo) override {
     ESP_LOGI(TAG, "Client address: %s\n", connInfo.getAddress().toString());
-    pServer->updateConnParams(connInfo.getConnHandle(), 24, 48, 0, 100);
+    pServer->updateConnParams(connInfo.getConnHandle(), 80, 100, 4, 200);
+    clientConnected = true;
   }
 
   void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo,
@@ -95,6 +92,12 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(INFO_CHARACTERISTIC_UUID))) {
       characteristic = "Info";
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID))) {
+      characteristic = "Web Server";
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID))) {
+      characteristic = "Brightness";
     }
     ESP_LOGI(TAG, "%s onRead, value: %s", characteristic,
              pCharacteristic->getValue().c_str());
@@ -144,19 +147,19 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       ESP_LOGI(TAG, "Color onWrite, Received data: %s", value.c_str());
       std::vector<std::string> colors = split(value, ",");
       if (colors.size() == 1) {
-        NeedleColor color;
-        Preference::getNeedleColor(color);
+        PointerColor color;
+        Preference::getPointerColor(color);
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
         if (endptr == colors[0].c_str() + 1) {
           color.southColor = southColor;
         }
-        Preference::saveNeedleColor(color);
+        Preference::savePointerColor(color);
       } else if (colors.size() >= 2) {
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
-        NeedleColor color;
-        Preference::getNeedleColor(color);
+        PointerColor color;
+        Preference::getPointerColor(color);
         if (endptr == colors[0].c_str()) {
           ESP_LOGE(TAG, "Failed to parse southColor value");
         } else {
@@ -168,9 +171,9 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
         } else {
           color.spawnColor = spawnColor;
         }
-        Preference::saveNeedleColor(color);
+        Preference::savePointerColor(color);
       } else {
-        ESP_LOGE(TAG, "Failed to parse NeedleColor value");
+        ESP_LOGE(TAG, "Failed to parse PointerColor value");
       }
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(VIRTUAL_LOCATION_CHARACHTERISTIC_UUID))) {
@@ -188,6 +191,23 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       ESP_LOGI(TAG, "Reboot onWrite, Received data: %s", value.c_str());
       delay(1000);
       esp_restart();
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID))) {
+      // uint8_t value = pCharacteristic->getValue().data;
+      // ESP_LOGI(TAG, "WebServer onWrite, Received data: %s", value.c_str());
+      // Preference::setBrightness(value);
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID))) {
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Brightness onWrite, Received data: %d", value[0]);
+      if (value.length() == 1) {
+        uint8_t brightness = static_cast<uint8_t>(value[0]);
+        // 打印亮度值
+        Preference::setBrightness(brightness);
+        Pixel::setBrightness(brightness);
+      } else {
+        ESP_LOGE(TAG, "Error: Invalid brightness value length");
+      }
     }
   }
 
@@ -224,7 +244,6 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
 void CompassBLE::init(Context *context) {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
-  NimBLEDevice::setPower(3);
   pServer = NimBLEDevice::createServer();
   pServer->setCallbacks(&serverCallbacks);
   // 基础Service
@@ -234,8 +253,8 @@ void CompassBLE::init(Context *context) {
   NimBLECharacteristic *colorChar = baseService->createCharacteristic(
       NimBLEUUID(COLOR_CHARACTERISITC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-  NeedleColor color;
-  Preference::getNeedleColor(color);
+  PointerColor color;
+  Preference::getPointerColor(color);
   char colorBuffer[24] = {0};
   sprintf(colorBuffer, "%x,%x", color.spawnColor, color.southColor);
   colorChar->setValue(colorBuffer);
@@ -285,6 +304,22 @@ void CompassBLE::init(Context *context) {
           NIMBLE_PROPERTY::WRITE);
   virtualLocationChar->setValue(0);
   virtualLocationChar->setCallbacks(&chrCallbacks);
+  // 服务器模式
+  NimBLECharacteristic *serverModeChar = advancedService->createCharacteristic(
+      NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
+  bool useWiFi = DEFAULT_SERVER_MODE;
+  Preference::getWebServerConfig(useWiFi);
+  serverModeChar->setValue(useWiFi);
+  serverModeChar->setCallbacks(&chrCallbacks);
+
+  // 亮度
+  NimBLECharacteristic *brightnessChar = advancedService->createCharacteristic(
+      NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID),
+      NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
+  uint8_t brightness = DEFAULT_BRIGHTNESS;
+  Preference::getBrightness(brightness);
+  brightnessChar->setValue(brightness);
+  brightnessChar->setCallbacks(&chrCallbacks);
 
   baseService->start();
   advancedService->start();
@@ -293,9 +328,11 @@ void CompassBLE::init(Context *context) {
   pAdvertising->setName("Lenovo");
   pAdvertising->addServiceUUID(baseService->getUUID());
   pAdvertising->addServiceUUID(advancedService->getUUID());
+  xTaskCreate(CompassBLE::bleTask, "bleTask", 4096, NULL, 2, &gloopTaskHandle);
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
-  xTaskCreate(CompassBLE::bleTask, "bleTask", 4096, NULL, 2, NULL);
+  serverEnable = true;
+  Serial.printf("sssAdvertising Started\n");
 }
 
 void CompassBLE::bleTask(void *pvParameters) {
@@ -316,4 +353,23 @@ void CompassBLE::bleTask(void *pvParameters) {
       }
     }
   }
+}
+
+void CompassBLE::disable() {
+  tick++;
+  if (tick < DEFAULT_SERVER_TICK_COUNT) {
+    return;
+  }
+  if (!serverEnable || clientConnected) {
+    return;
+  }
+  ESP_LOGW(TAG, "disable");
+  if (gloopTaskHandle != NULL) {
+    ESP_LOGW(TAG, "Delete BLE Loop Task");
+    vTaskDelete(gloopTaskHandle);
+    gloopTaskHandle = NULL;
+  }
+  NimBLEDevice::deinit(false);
+  esp_bt_controller_disable();
+  serverEnable = false;
 }

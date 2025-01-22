@@ -12,12 +12,15 @@ static Context context;
 static void setupContext() {
   context.currentLoc = {.latitude = DEFAULT_INVALID_LOCATION_VALUE,
                         .longitude = DEFAULT_INVALID_LOCATION_VALUE};
-  context.targetLoc = {.latitude = 43.0f, .longitude = 126.0f};
+  // 天安门坐标39.908692, 116.397477
+  context.targetLoc = {.latitude = 39.908692f, .longitude = 116.397477f};
   context.deviceState = CompassState::STATE_LOST_BEARING;
   context.lastDeviceState = CompassState::STATE_LOST_BEARING;
   context.deviceType = CompassType::LocationCompass;
   context.animationFrameIndex = 0;
   context.forceTheNether = false;
+  Preference::getWebServerConfig(context.useWiFi);
+  Preference::getPointerColor(context.color);
 }
 
 // 校准检测
@@ -41,63 +44,61 @@ Context *Board::init() {
   button.attachClick(
       [](void *scope) {
         switch (context.deviceState) {
-          case CompassState::STATE_COMPASS: {
-            if (context.deviceType == CompassType::LocationCompass) {
-              context.deviceType = CompassType::SouthCompass;
-            } else {
-              context.deviceType = CompassType::LocationCompass;
-            }
-            ESP_LOGI(TAG, "Toggle Compass Type to %s",
-                     context.deviceType == CompassType::LocationCompass
-                         ? "LocationCompass"
-                         : "SouthCompass");
-            break;
+        case CompassState::STATE_COMPASS: {
+          if (context.deviceType == CompassType::LocationCompass) {
+            context.deviceType = CompassType::SouthCompass;
+          } else {
+            context.deviceType = CompassType::LocationCompass;
           }
+          ESP_LOGI(TAG, "Toggle Compass Type to %s",
+                   context.deviceType == CompassType::LocationCompass
+                       ? "LocationCompass"
+                       : "SouthCompass");
+          break;
+        }
 
-          default:
-            break;
+        default:
+          break;
         }
       },
       &button);
   button.attachLongPressStart(
       [](void *scope) {
         switch (context.deviceState) {
-          case CompassState::STATE_COMPASS: {
-            if (context.deviceType == CompassType::LocationCompass) {
-              // 设置当前地点为Home
-              // 检查GPS状态
-              if (context.currentLoc.latitude < 500.0f) {
-                Preference::saveHomeLocation(context.currentLoc);
-                memcpy(&context.targetLoc, &context.currentLoc,
-                       sizeof(Location));
-                ESP_LOGI(TAG, "Set Home");
-              } else {
-                ESP_LOGI(TAG, "Can't set home, no GPS data.");
-              }
+        case CompassState::STATE_COMPASS: {
+          if (context.deviceType == CompassType::LocationCompass) {
+            // 设置当前地点为Home
+            // 检查GPS状态
+            if (context.currentLoc.latitude < 500.0f) {
+              Preference::saveHomeLocation(context.currentLoc);
+              memcpy(&context.targetLoc, &context.currentLoc, sizeof(Location));
+              ESP_LOGI(TAG, "Set Home");
             } else {
-              // 指南针模式下长按切换到theNether
-              context.forceTheNether = !context.forceTheNether;
+              ESP_LOGI(TAG, "Can't set home, no GPS data.");
             }
-            break;
+          } else {
+            // 指南针模式下长按切换到theNether
+            context.forceTheNether = !context.forceTheNether;
           }
-          case CompassState::STATE_CONNECT_WIFI: {
-            ESP_LOGW(TAG, "Clear WiFi");
-            // 清空WiFi配置
-            wifi_config_t config;
-            esp_wifi_set_config(WIFI_IF_STA, &config);
-            delay(3000);
-            esp_restart();
-          }
+          break;
+        }
+        case CompassState::STATE_CONNECT_WIFI: {
+          ESP_LOGW(TAG, "Clear WiFi");
+          // 清空WiFi配置
+          wifi_config_t config;
+          esp_wifi_set_config(WIFI_IF_STA, &config);
+          delay(3000);
+          esp_restart();
+        }
 
-          default:
-            break;
+        default:
+          break;
         }
       },
       &button);
-
-  bool useWiFi = false;
-  Preference::getWebServerConfig(useWiFi);
-  if (useWiFi) {
+  ESP_LOGI(TAG, "WebServerConfig:%s ",
+           context.useWiFi ? "CompassServer" : "CompassBLE");
+  if (context.useWiFi) {
     CompassServer::init(&context);
   } else {
     CompassBLE::init(&context);

@@ -29,7 +29,7 @@ class QMC5883LCompass{
 	int getAzimuth();
 	byte getBearing(int azimuth);
 	void getDirection(char* myArray, int azimuth);
-
+	char chipID();
   private:
     void _writeReg(byte reg,byte val);
 	int _get(int index);

@@ -3,14 +3,15 @@
 #include "func.h"
 #include "macro_def.h"
 
-#define PREFERENCE_NAME "mcompass"  // 配置文件名称
+#define PREFERENCE_NAME "mcompass" // 配置文件名称
 
-#define LATITUDE_KEY "latitude"       // 纬度Key
-#define LONGTITUDE_KEY "longitude"    // 经度Key
-#define SPAWN_COLOR_KEY "spawnColor"  // 出生针颜色
-#define SOUTH_COLOR_KEY "southColor"  // 指南针颜色
-#define SERVER_MODE_KEY "serverMode"  // 配置模式
-#define WIFI_SSID_KEY "SSID"          // WiFi账号
+#define LATITUDE_KEY "latitude"      // 纬度Key
+#define LONGTITUDE_KEY "longitude"   // 经度Key
+#define SPAWN_COLOR_KEY "spawnColor" // 出生针颜色
+#define SOUTH_COLOR_KEY "southColor" // 指南针颜色
+#define SERVER_MODE_KEY "serverMode" // 配置模式
+#define WIFI_SSID_KEY "SSID"         // WiFi账号
+#define BRIGHTNESS_KEY "brightness"  // WiFi账号
 
 static const char *TAG = "Preference";
 void Preference::saveHomeLocation(Location location) {
@@ -34,7 +35,7 @@ void Preference::getHomeLocation(Location &location) {
   preferences.end();
 }
 
-void Preference::saveNeedleColor(NeedleColor color) {
+void Preference::savePointerColor(PointerColor color) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putInt(SPAWN_COLOR_KEY, color.spawnColor);
@@ -44,7 +45,7 @@ void Preference::saveNeedleColor(NeedleColor color) {
            color.southColor);
 }
 
-void Preference::getNeedleColor(NeedleColor &color) {
+void Preference::getPointerColor(PointerColor &color) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(SPAWN_COLOR_KEY) ||
@@ -74,9 +75,27 @@ void Preference::getWebServerConfig(bool &useWiFi) {
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(SERVER_MODE_KEY)) {
     preferences.end();
-    useWiFi = false;
+    useWiFi = true;
     return;
   }
   useWiFi = preferences.getBool(SERVER_MODE_KEY, false);
+  preferences.end();
+}
+
+void Preference::setBrightness(uint8_t brightness) {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putUChar(BRIGHTNESS_KEY, brightness);
+  preferences.end();
+}
+
+void Preference::getBrightness(uint8_t &setBrightness) {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  if (!preferences.isKey(BRIGHTNESS_KEY)) {
+    preferences.end();
+    return;
+  }
+  setBrightness = preferences.getUChar(BRIGHTNESS_KEY, 64);
   preferences.end();
 }

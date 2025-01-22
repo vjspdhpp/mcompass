@@ -15,7 +15,7 @@ void calibrateCheck();
  * @brief 按钮任务
  */
 void buttonTask(void *pvParameters);
-}  // namespace Board
+} // namespace Board
 
 namespace Preference {
 /**
@@ -29,11 +29,11 @@ void getHomeLocation(Location &location);
 /**
  * @brief 保存指针颜色
  */
-void saveNeedleColor(NeedleColor color);
+void savePointerColor(PointerColor color);
 /**
  * @brief 获取指针颜色
  */
-void getNeedleColor(NeedleColor &color);
+void getPointerColor(PointerColor &color);
 /**
  * @brief 网页服务开关
  * @param useWiFi 使用网页进行配置
@@ -43,7 +43,17 @@ void setWebServerConfig(bool useWiFi);
  * @brief 获取网页服务开关
  */
 void getWebServerConfig(bool &useWiFi);
-}  // namespace Preference
+
+/**
+ * @brief 设置LED亮度
+ */
+void setBrightness(uint8_t setBrightness);
+
+/**
+ * @brief 获取当前LED亮度
+ */
+void getBrightness(uint8_t &setBrightness);
+} // namespace Preference
 
 namespace Compass {
 /**
@@ -79,7 +89,7 @@ bool isCompassAvailable();
  */
 void init(Context *context);
 
-}  // namespace Compass
+} // namespace Compass
 
 namespace GPS {
 /**
@@ -95,7 +105,11 @@ void deinit(Context *context);
  */
 void locationTask(void *pvParameters);
 
-}  // namespace GPS
+/**
+ * @brief GPS 关闭
+ */
+void disable();
+} // namespace GPS
 
 namespace Pixel {
 /**
@@ -178,7 +192,12 @@ void showServerInfo();
  * @brief 显示任务
  */
 void pixelTask(void *pvParameters);
-}  // namespace Pixel
+
+/**
+ * @brief 设置亮度
+ */
+void setBrightness(uint8_t brightness);
+} // namespace Pixel
 
 namespace CompassServer {
 
@@ -206,7 +225,7 @@ void localHotspot(const char *ssid = "The Lost Compass");
  * @brief 关闭热点
  */
 void stopHotspot();
-}  // namespace CompassServer
+} // namespace CompassServer
 
 namespace CompassBLE {
 
@@ -214,5 +233,12 @@ namespace CompassBLE {
  * @brief 蓝牙初始化
  */
 void init(Context *context);
+/**
+ * @brief 蓝牙task
+ */
 void bleTask(void *pvParameters);
-}  // namespace CompassBLE
+/**
+ * @brief 关闭蓝牙
+ */
+void disable();
+} // namespace CompassBLE

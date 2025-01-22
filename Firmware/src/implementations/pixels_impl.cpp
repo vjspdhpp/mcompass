@@ -8,21 +8,25 @@ static CRGB leds[NUM_LEDS];
 static const char *TAG = "PIXEL";
 
 void Pixel::init(Context *context) {
+  uint8_t brightness = 64;
+  Preference::getBrightness(brightness);
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(128);
+  FastLED.setBrightness(brightness);
+  ESP_LOGI(TAG, "set brightness %d", brightness);
 }
 
 void Pixel::bootAnimation(void (*callbackFn)()) {
   for (int i = 0; i < 59; i++) {
-    showFrameByAzimuth(bootAnimationValues[i], 0xffffff);
+    showFrame(i % MAX_FRAME_INDEX, 0x121212);
     unsigned long start = millis();
     if (callbackFn) {
       callbackFn();
     }
     unsigned long cost = millis() - start;
-    if (cost < 30) {
-      delay(30 - cost);
-    }
+    // if (cost < 50) {
+    //   delay(50 - cost);
+    // }
+    delay(50);
   }
 }
 
@@ -53,6 +57,10 @@ void Pixel::theNether() {
 }
 
 void Pixel::showFrame(int index, int overrideColor) {
+  if (index > MAX_FRAME_INDEX || index < 0) {
+    return;
+  }
+
   // Serial.printf("showFrame: relative index=%f,", index);
   static uint32_t color = 0;
   color = overrideColor;
@@ -150,7 +158,7 @@ static void showBouncing(int color) {
     float distance = abs(i - index);
     // Use gaussian/normal distribution formula
     float brightness = 255 * exp(-(distance * distance) /
-                                 (2 * 1.5));  // sigma=1.5 controls spread
+                                 (2 * 1.5)); // sigma=1.5 controls spread
 
     leds[indexes[i]] = color;
     // Apply calculated brightness
@@ -179,77 +187,81 @@ void Pixel::showServerInfo() {
 
 void Pixel::pixelTask(void *pvParameters) {
   Context *context = (Context *)pvParameters;
+  ESP_LOGW(TAG, "pixelTask get%p", &context);
   while (1) {
     switch (context->deviceState) {
-      case STATE_LOST_BEARING:
-      case STATE_WAIT_GPS: {
-        // 等待GPS数据
+    case STATE_LOST_BEARING:
+    case STATE_WAIT_GPS: {
+      // 等待GPS数据
+      Pixel::theNether();
+      delay(50);
+      continue;
+    }
+    case STATE_COMPASS: {
+      float azimuth = Compass::getAzimuth();
+      if (context->deviceType == CompassType::LocationCompass) {
+        // 检测当前坐标是否合法
+        if (context->currentLoc.latitude != DEFAULT_INVALID_LOCATION_VALUE) {
+          Pixel::showFrameByLocation(context->targetLoc.latitude,
+                                     context->targetLoc.longitude,
+                                     context->currentLoc.latitude,
+                                     context->currentLoc.longitude, azimuth);
+          continue;
+        }
         Pixel::theNether();
         delay(50);
         continue;
       }
-      case STATE_COMPASS: {
-        float azimuth = Compass::getAzimuth();
-        if (context->deviceType == CompassType::LocationCompass) {
-          // 检测当前坐标是否合法
-          if (context->currentLoc.latitude != DEFAULT_INVALID_LOCATION_VALUE) {
-            Pixel::showFrameByLocation(context->targetLoc.latitude,
-                                       context->targetLoc.longitude,
-                                       context->currentLoc.latitude,
-                                       context->currentLoc.longitude, azimuth);
-            continue;
-          }
-          Pixel::theNether();
-          delay(50);
-          continue;
-        }
-        ESP_LOGD(TAG, "Azimuth = %d\n", azimuth);
-        context->forceTheNether ? Pixel::theNether()
-                                : Pixel::showFrameByAzimuth(360 - azimuth);
-        delay(50);
-        break;
-      }
+      context->forceTheNether ? Pixel::theNether()
+                              : Pixel::showFrameByAzimuth(360 - azimuth);
+      delay(50);
+      break;
+    }
 
-      case STATE_CALIBRATE: {
-        Compass::calibrateCompass();
-        break;
+    case STATE_CALIBRATE: {
+      Compass::calibrateCompass();
+      break;
+    }
+    case STATE_CONNECT_WIFI:
+      Pixel::showFrame(context->animationFrameIndex, CRGB::Green);
+      context->animationFrameIndex++;
+      if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+        context->animationFrameIndex = 0;
       }
-      case STATE_CONNECT_WIFI:
-        Pixel::showFrame(context->animationFrameIndex, CRGB::Green);
-        context->animationFrameIndex++;
-        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
-          context->animationFrameIndex = 0;
-        }
-        delay(30);
-        break;
-      case STATE_SERVER_COLORS: {
-        delay(50);
-        break;
+      delay(30);
+      break;
+    case STATE_SERVER_COLORS: {
+      delay(50);
+      break;
+    }
+    case STATE_SERVER_WIFI: {
+      Pixel::showServerWifi();
+      break;
+    }
+    case STATE_SERVER_SPAWN: {
+      Pixel::showServerSpawn();
+      break;
+    }
+    case STATE_SERVER_INFO: {
+      Pixel::showServerInfo();
+      break;
+    }
+    case STATE_HOTSPOT: {
+      Pixel::showFrame(context->animationFrameIndex, CRGB::Yellow);
+      context->animationFrameIndex++;
+      if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+        context->animationFrameIndex = 0;
       }
-      case STATE_SERVER_WIFI: {
-        Pixel::showServerWifi();
-        break;
-      }
-      case STATE_SERVER_SPAWN: {
-        Pixel::showServerSpawn();
-        break;
-      }
-      case STATE_SERVER_INFO: {
-        Pixel::showServerInfo();
-        break;
-      }
-      case STATE_HOTSPOT: {
-        Pixel::showFrame(context->animationFrameIndex, CRGB::Yellow);
-        context->animationFrameIndex++;
-        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
-          context->animationFrameIndex = 0;
-        }
-        delay(30);
-        break;
-      }
-      default:
-        delay(50);
-        break;
+      delay(30);
+      break;
+    }
+    default:
+      delay(50);
+      break;
     }
   }
+}
+
+void Pixel::setBrightness(uint8_t brightness) {
+  FastLED.setBrightness(brightness);
 }
