@@ -1,5 +1,3 @@
-
-
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
@@ -11,6 +9,10 @@
 #include <esp_event.h>
 #include <esp_wifi.h>
 #include <soc/usb_serial_jtag_reg.h>
+
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 #include "common.h"
 #include "func.h"
@@ -30,6 +32,46 @@ static int isPluggedUSB(void) {
   uint32_t first = *aa;
   vTaskDelay(pdMS_TO_TICKS(10));
   return (int)(*aa - first);
+}
+
+#include <iomanip>
+#include <sstream>
+#include <string>
+
+std::string toHexString(int spawnColor) {
+  // 提取RGB分量
+  int red = (spawnColor >> 16) & 0xFF;
+  int green = (spawnColor >> 8) & 0xFF;
+  int blue = spawnColor & 0xFF;
+
+  // 预分配足够的空间
+  std::string result(7, '#');
+
+  // 将RGB分量转换为16进制字符串
+  snprintf(&result[1], 7, "%02X%02X%02X", red, green, blue);
+
+  return result;
+}
+
+int fromHexString(const std::string &hexColor) {
+  // 去掉开头的 '#'（如果有）
+  std::string hex = hexColor;
+  if (!hex.empty() && hex[0] == '#') {
+    hex.erase(hex.begin());
+  }
+
+  // 确保字符串长度是 6（RRGGBB）
+  if (hex.length() != 6) {
+    return 0;
+  }
+
+  // 将字符串解析为整数
+  unsigned int colorValue;
+  std::stringstream ss;
+  ss << std::hex << hex;  // 将 16 进制字符串转换为整数
+  ss >> colorValue;
+
+  return static_cast<int>(colorValue);
 }
 
 static void notFound(AsyncWebServerRequest *request) {
@@ -57,7 +99,7 @@ static void apis(void) {
         request->send(400, "text/plain", "index parameter invalid");
       }
       ctx->deviceState = STATE_SERVER_INDEX;
-      int hexRgb = DEFAULT_NEEDLE_COLOR;
+      int hexRgb = DEFAULT_POINTER_COLOR;
       if (request->getParam("color") != nullptr) {
         String color = request->getParam("color")->value();
         char *endptr;
@@ -65,10 +107,11 @@ static void apis(void) {
         ESP_LOGI(TAG, "setIndex(%d) with color(%06X)\n", index, hexRgb);
         // 解析失败还原指针颜色
         if (endptr == color.c_str() + 1) {
-          hexRgb = DEFAULT_NEEDLE_COLOR;
+          hexRgb = DEFAULT_POINTER_COLOR;
         }
       }
-      Pixel::showFrame(index, hexRgb);
+      Pixel::setPointerColor(hexRgb);
+      Pixel::showFrame(index);
       request->send(200, "text/plain", "OK");
     } else {
       request->send(400, "text/plain", "Missing index parameter");
@@ -77,7 +120,14 @@ static void apis(void) {
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     ctx->deviceState = STATE_SERVER_INFO;
-    request->send(200, "text/json", INFO_JSON);
+    String json = "{\"buildDate\":\"" + String(__DATE__) +
+                  "\",\"buildTime\":\"" + String(__TIME__) +
+                  "\",\"buildVersion\":\"" + String(BUILD_VERSION) +
+                  "\",\"gitBranch\":\"" + String(GIT_BRANCH) +
+                  "\",\"gpsStatus\":\"" + (ctx->hasGPS ? "1" : "0") +
+                  "\",\"sensorStatus\":\"" + (ctx->hasSensor ? "1" : "0") +
+                  "\",\"gitCommit\":\"" + String(GIT_COMMIT) + "\"}";
+    request->send(200, "text/json", json);
   });
 
   server.on("/spawn", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -125,6 +175,7 @@ static void apis(void) {
   });
   server.on("/pointColors", HTTP_POST, [](AsyncWebServerRequest *request) {
     clientConnected = true;
+    ESP_LOGE(TAG, "pointColors!!!!!!!");
     PointerColor pointColor;
     Preference::getPointerColor(pointColor);
 
@@ -140,6 +191,8 @@ static void apis(void) {
       }
       ESP_LOGI(TAG, "setColor to %06X\n", hexRgb);
       pointColor.southColor = hexRgb;
+    } else {
+      ESP_LOGE(TAG, "not found southColor");
     }
     if (request->hasParam("spawnColor")) {
       String color = request->getParam("spawnColor")->value();
@@ -153,6 +206,8 @@ static void apis(void) {
       }
       ESP_LOGI(TAG, "setColor to %06X\n", hexRgb);
       pointColor.spawnColor = hexRgb;
+    } else {
+      ESP_LOGE(TAG, "not found spawnColor");
     }
     Preference::savePointerColor(pointColor);
     request->send(200);
@@ -161,10 +216,12 @@ static void apis(void) {
     clientConnected = true;
     PointerColor pointColor;
     Preference::getPointerColor(pointColor);
+    std::string spawnColor = toHexString(pointColor.spawnColor);
+    std::string southColor = toHexString(pointColor.southColor);
     request->send(200, "text/json",
-                  "{\"spawnColor\":\"" + String(pointColor.spawnColor, 16) +
-                      "\",\"southColor\":\"" +
-                      String(pointColor.southColor, 16) + "\"}");
+                  "{\"spawnColor\":\"" + String(spawnColor.c_str()) +
+                      "\",\"southColor\":\"" + String(southColor.c_str()) +
+                      "\"}");
   });
   server.on("/brightness", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
@@ -193,7 +250,8 @@ static void apis(void) {
         // 更新设备状态和亮度
         ctx->deviceState = STATE_SERVER_COLORS;
         Preference::setBrightness(brightness);
-
+        ESP_LOGI(TAG, "set brightness to %d", brightness);
+        Pixel::setBrightness(brightness);
         // 返回成功响应
         request->send(200);
       } else {
@@ -236,26 +294,21 @@ static void apis(void) {
   server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     ctx->deviceState = STATE_SERVER_WIFI;
-    String ssid = WiFi.SSID();
-    String password = WiFi.psk();
-    request->send(200, "text/json",
-                  "{\"ssid\":\"" + ssid + "\",\"password\":\"\"}");
+    String ssid;
+    String password;
+    Preference::getWiFiCredentials(ssid, password);
+    request->send(
+        200, "text/json",
+        "{\"ssid\":\"" + ssid + "\",\"password\":\"" + password + "\"}");
   });
-  server.on("/wiFi", HTTP_POST, [](AsyncWebServerRequest *request) {
+  server.on("/wifi", HTTP_POST, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     if (request->hasParam("ssid") && request->hasParam("password")) {
       String ssid = request->getParam("ssid")->value();
       String password = request->getParam("password")->value();
-      wifi_config_t config;
-      strncpy(reinterpret_cast<char *>(config.sta.ssid), ssid.c_str(),
-              ssid.length());
-      strncpy(reinterpret_cast<char *>(config.sta.password), password.c_str(),
-              password.length());
-      esp_wifi_set_config(WIFI_IF_STA, &config);
-      ESP_LOGD(TAG, "setWiFi: %s, ******\n", ssid.c_str());
+      Preference::setWiFiCredentials(ssid, password);
+      // 重启后配置生效
       request->send(200);
-      delay(3000);
-      esp_restart();
     }
   });
   // 兼容性保留setWiFi
@@ -264,16 +317,19 @@ static void apis(void) {
     if (request->hasParam("ssid") && request->hasParam("password")) {
       String ssid = request->getParam("ssid")->value();
       String password = request->getParam("password")->value();
-      wifi_config_t config;
-      strncpy(reinterpret_cast<char *>(config.sta.ssid), ssid.c_str(),
-              ssid.length());
-      strncpy(reinterpret_cast<char *>(config.sta.password), password.c_str(),
-              password.length());
-      esp_wifi_set_config(WIFI_IF_STA, &config);
-      ESP_LOGD(TAG, "setWiFi: %s, ******\n", ssid.c_str());
+      Preference::setWiFiCredentials(ssid, password);
+      // 重启后配置生效
       request->send(200);
-      delay(3000);
-      esp_restart();
+    }
+  });
+
+  server.on("/advancedConfig", HTTP_POST, [](AsyncWebServerRequest *request) {
+    clientConnected = true;
+    if (request->hasParam("enableBLE")) {
+      String enableBLE = request->getParam("enableBLE")->value();
+      Preference::setWebServerConfig(enableBLE == "1");
+      // 重启后配置生效
+      request->send(200);
     }
   });
 }
@@ -294,18 +350,18 @@ void CompassServer::stopHotspot() {
 }
 
 static void launchServer(const char *defaultFile) {
-  if (!MDNS.begin("esp32")) { // Set the hostname to "esp32.local"
+  if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
     ESP_LOGE(TAG, "Error setting up MDNS responder!");
     while (1) {
       delay(1000);
     }
   }
   ESP_LOGI(TAG, "Launching server");
+  apis();
   server.serveStatic("/", LittleFS, "/").setDefaultFile(defaultFile);
   server.onNotFound(notFound);
   server.begin();
   ESP_LOGI(TAG, "Server launched");
-  apis();
 }
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -332,23 +388,21 @@ void CompassServer::init(Context *context) {
   ctx = context;
   ESP_LOGI(TAG, "Setting up server");
   // 获取储存的WiFi配置
-  wifi_config_t config;
-  esp_wifi_get_config(WIFI_IF_STA, &config);
-
+  String ssid, password;
+  Preference::getWiFiCredentials(ssid, password);
   LittleFS.begin(false, "/littlefs", 32);
   // 没有WiFi配置无条件开启热点
-  if (strlen(reinterpret_cast<const char *>(config.sta.ssid)) == 0) {
+  if (ssid.length() == 0) {
     ctx->deviceState = STATE_HOTSPOT;
     ESP_LOGI(TAG, "No WiFi credentials found");
     localHotspot();
     launchServer("index.html");
     return;
   }
-  ESP_LOGI(TAG, "Connecting to %s\n", config.sta.ssid);
+  ESP_LOGI(TAG, "Connecting to %s\n", ssid);
   WiFi.mode(WIFI_STA);
   WiFi.setAutoConnect(false);
-  WiFi.begin(reinterpret_cast<const char *>(config.sta.ssid),
-             reinterpret_cast<const char *>(config.sta.password));
+  WiFi.begin(ssid, password);
   ctx->deviceState = STATE_CONNECT_WIFI;
   unsigned long begin = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -364,7 +418,7 @@ void CompassServer::init(Context *context) {
     localHotspot("Your Compass");
   }
 
-  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP());
+  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString());
   launchServer("index.html");
   MDNS.addService("http", "tcp", 80);
   serverEnable = true;

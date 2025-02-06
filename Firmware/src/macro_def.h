@@ -10,11 +10,14 @@
 
 /// 默认值
 // 指针颜色
-#define DEFAULT_NEEDLE_COLOR 0xff1414 // 指针红
+#define DEFAULT_POINTER_COLOR 0xFF1414  // 指针红
 // 默认亮度
 #define DEFAULT_BRIGHTNESS 64
+
+#define MODE_WIFI 0
+#define MODE_BLE 1
 // 默认模式
-#define DEFAULT_SERVER_MODE 1 // 蓝牙模式
+#define DEFAULT_SERVER_MODE MODE_WIFI  // 蓝牙模式1 WiFi模式0
 
 // 默认连接连接WiFi等待时间 10秒
 #define DEFAULT_WIFI_CONNECT_TIME 10 * 1000
@@ -25,19 +28,19 @@
 
 #if !defined(BUILD_VERSION)
 #define BUILD_VERSION "UNKNOWN"
-#endif // MACRO
+#endif  // MACRO
 
 #if !defined(GIT_BRANCH)
 #define GIT_BRANCH "UNKNOWN"
-#endif // MACRO
+#endif  // MACRO
 
 #if !defined(GIT_COMMIT)
 #define GIT_COMMIT "UNKNOWN"
-#endif // MACRO
+#endif  // MACRO
 
-#define INFO_JSON                                                              \
-  "{\"buildDate\":\"" __DATE__ "\",\"buildTime\":\"" __TIME__                  \
-  "\",\"buildVersion\":\"" BUILD_VERSION "\",\"gitBranch\":\"" GIT_BRANCH      \
+#define INFO_JSON                                                         \
+  "{\"buildDate\":\"" __DATE__ "\",\"buildTime\":\"" __TIME__             \
+  "\",\"buildVersion\":\"" BUILD_VERSION "\",\"gitBranch\":\"" GIT_BRANCH \
   "\",\"gitCommit\":\"" GIT_COMMIT "\"}"
 
 // 默认初始的坐标值

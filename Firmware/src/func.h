@@ -53,6 +53,16 @@ void setBrightness(uint8_t setBrightness);
  * @brief 获取当前LED亮度
  */
 void getBrightness(uint8_t &setBrightness);
+
+/**
+ * @brief 设置Wi-Fi SSID和密码
+ */
+void setWiFiCredentials(String ssid, String password);
+
+/**
+ * @brief 获取当前的Wi-Fi SSID和密码
+ */
+void getWiFiCredentials(String& ssid, String& password);
 } // namespace Preference
 
 namespace Compass {
@@ -134,13 +144,12 @@ void theNether();
  * @param index 帧索引
  * @param overrideColor 重载颜色, 用来覆盖指针颜色, 默认红色指针
  */
-void showFrame(int index, int overrideColor = DEFAULT_NEEDLE_COLOR);
+void showFrame(int index);
 /**
  * @brief 根据方位角显示帧
  * @param azimuth 方位角 范围应当是0~360
  */
-void showFrameByAzimuth(float azimuth,
-                        int overrideColor = DEFAULT_NEEDLE_COLOR);
+void showFrameByAzimuth(float azimuth);
 /**
  * @brief 根据方位角显示帧
  * @param bearing 方位角
@@ -187,7 +196,10 @@ void showServerSpawn();
  * @brief 服务器信息
  */
 void showServerInfo();
-
+/**
+ * @brief 绘制字符
+ */
+void drawChar(char c, int startX, int startY, uint32_t color);
 /**
  * @brief 显示任务
  */
@@ -197,6 +209,11 @@ void pixelTask(void *pvParameters);
  * @brief 设置亮度
  */
 void setBrightness(uint8_t brightness);
+
+/**
+ * @brief 设置指针颜色
+ */
+void setPointerColor(uint32_t pointColor);
 } // namespace Pixel
 
 namespace CompassServer {

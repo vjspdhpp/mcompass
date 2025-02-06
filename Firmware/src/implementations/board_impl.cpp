@@ -19,7 +19,7 @@ static void setupContext() {
   context.deviceType = CompassType::LocationCompass;
   context.animationFrameIndex = 0;
   context.forceTheNether = false;
-  Preference::getWebServerConfig(context.useWiFi);
+  Preference::getWebServerConfig(context.enableBLE);
   Preference::getPointerColor(context.color);
 }
 
@@ -44,64 +44,65 @@ Context *Board::init() {
   button.attachClick(
       [](void *scope) {
         switch (context.deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (context.deviceType == CompassType::LocationCompass) {
-            context.deviceType = CompassType::SouthCompass;
-          } else {
-            context.deviceType = CompassType::LocationCompass;
+          case CompassState::STATE_COMPASS: {
+            if (context.deviceType == CompassType::LocationCompass) {
+              context.deviceType = CompassType::SouthCompass;
+            } else {
+              context.deviceType = CompassType::LocationCompass;
+            }
+            ESP_LOGI(TAG, "Toggle Compass Type to %s",
+                     context.deviceType == CompassType::LocationCompass
+                         ? "LocationCompass"
+                         : "SouthCompass");
+            break;
           }
-          ESP_LOGI(TAG, "Toggle Compass Type to %s",
-                   context.deviceType == CompassType::LocationCompass
-                       ? "LocationCompass"
-                       : "SouthCompass");
-          break;
-        }
 
-        default:
-          break;
+          default:
+            break;
         }
       },
       &button);
   button.attachLongPressStart(
       [](void *scope) {
         switch (context.deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (context.deviceType == CompassType::LocationCompass) {
-            // 设置当前地点为Home
-            // 检查GPS状态
-            if (context.currentLoc.latitude < 500.0f) {
-              Preference::saveHomeLocation(context.currentLoc);
-              memcpy(&context.targetLoc, &context.currentLoc, sizeof(Location));
-              ESP_LOGI(TAG, "Set Home");
+          case CompassState::STATE_COMPASS: {
+            if (context.deviceType == CompassType::LocationCompass) {
+              // 设置当前地点为Home
+              // 检查GPS状态
+              if (context.currentLoc.latitude < 500.0f) {
+                Preference::saveHomeLocation(context.currentLoc);
+                memcpy(&context.targetLoc, &context.currentLoc,
+                       sizeof(Location));
+                ESP_LOGI(TAG, "Set Home");
+              } else {
+                ESP_LOGI(TAG, "Can't set home, no GPS data.");
+              }
             } else {
-              ESP_LOGI(TAG, "Can't set home, no GPS data.");
+              // 指南针模式下长按切换到theNether
+              context.forceTheNether = !context.forceTheNether;
             }
-          } else {
-            // 指南针模式下长按切换到theNether
-            context.forceTheNether = !context.forceTheNether;
+            break;
           }
-          break;
-        }
-        case CompassState::STATE_CONNECT_WIFI: {
-          ESP_LOGW(TAG, "Clear WiFi");
-          // 清空WiFi配置
-          wifi_config_t config;
-          esp_wifi_set_config(WIFI_IF_STA, &config);
-          delay(3000);
-          esp_restart();
-        }
+          case CompassState::STATE_CONNECT_WIFI: {
+            ESP_LOGW(TAG, "Clear WiFi");
+            // 清空WiFi配置
+            wifi_config_t config;
+            esp_wifi_set_config(WIFI_IF_STA, &config);
+            delay(3000);
+            esp_restart();
+          }
 
-        default:
-          break;
+          default:
+            break;
         }
       },
       &button);
   ESP_LOGI(TAG, "WebServerConfig:%s ",
-           context.useWiFi ? "CompassServer" : "CompassBLE");
-  if (context.useWiFi) {
-    CompassServer::init(&context);
-  } else {
+           !context.enableBLE ? "CompassServer" : "CompassBLE");
+  if (context.enableBLE) {
     CompassBLE::init(&context);
+  } else {
+    CompassServer::init(&context);
   }
   context.deviceState = STATE_COMPASS;
 
