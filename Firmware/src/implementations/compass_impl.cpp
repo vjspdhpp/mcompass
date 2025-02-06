@@ -4,7 +4,7 @@
 
 #include "func.h"
 
-#define EARTH_RADIUS 6371.0 // 地球半径（单位：公里）
+#define EARTH_RADIUS 6371.0  // 地球半径（单位：公里）
 static const char *TAG = "Compass";
 QMC5883LCompass compass;
 
@@ -16,12 +16,12 @@ void Compass::init(Context *context) {
   ESP_LOGW(TAG, "chipID =%x", chipID);
   if (chipID == 0xff) {
     compassAvailable = true;
+    context->hasSensor = true;
   }
 }
 
 void Compass::calibrateCompass() {
-  if (!compassAvailable)
-    return;
+  if (!compassAvailable) return;
   compass.calibrate();
   ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
            compass.getCalibrationOffset(0), compass.getCalibrationOffset(1),
@@ -59,24 +59,24 @@ double Compass::calculateBearing(double lat1, double lon1, double lat2,
   double x = atan2(fabs(numerator), fabs(denominator));
   double result = x;
 
-  if (lon2 > lon1) { // 右半球
-    if (lat2 > lat1) // 第一象限
+  if (lon2 > lon1) {  // 右半球
+    if (lat2 > lat1)  // 第一象限
       result = x;
-    else if (lat2 < lat1) // 第四象限
+    else if (lat2 < lat1)  // 第四象限
       result = PI - x;
     else
-      result = PI / 2;      // x轴正方向
-  } else if (lon2 < lon1) { // 左半球
-    if (lat2 > lat1)        // 第二象限
+      result = PI / 2;       // x轴正方向
+  } else if (lon2 < lon1) {  // 左半球
+    if (lat2 > lat1)         // 第二象限
       result = 2 * PI - x;
-    else if (lat2 < lat1) // 第三象限
+    else if (lat2 < lat1)  // 第三象限
       result = PI + x;
     else
-      result = 3 * PI / 2; // x轴负方向
-  } else {                 // 相同经度
-    if (lat2 > lat1)       // y轴正方向
+      result = 3 * PI / 2;  // x轴负方向
+  } else {                  // 相同经度
+    if (lat2 > lat1)        // y轴正方向
       result = 0;
-    else if (lat2 < lat1) // y轴负方向
+    else if (lat2 < lat1)  // y轴负方向
       result = PI;
     else {
       ESP_LOGW(TAG, "Warning Arriving at the destination Arriving.");
@@ -116,8 +116,7 @@ double Compass::simplifiedDistance(double lat1, double lon1, double lat2,
  */
 
 int Compass::getAzimuth() {
-  if (!compassAvailable)
-    return 0;
+  if (!compassAvailable) return 0;
   compass.read();
   int azimuth = compass.getAzimuth();
   if (azimuth < 0) {
