@@ -8,6 +8,8 @@ import {
   NavbarItem,
   NavbarMenuItem,
 } from "@nextui-org/navbar";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, useDisclosure } from "@heroui/modal";
+
 import { Button } from "@nextui-org/button";
 import { Link } from "@nextui-org/link";
 import { Input } from "@nextui-org/input";
@@ -18,13 +20,14 @@ import clsx from "clsx";
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
 import {
-  TwitterIcon,
   GithubIcon,
-  DiscordIcon,
   HeartFilledIcon,
   SearchIcon,
   Logo,
 } from "@/components/icons";
+import { Switch } from "@nextui-org/switch";
+import { cn } from "@heroui/theme";
+import { useState } from "react";
 
 export const Navbar = () => {
   const searchInput = (
@@ -35,7 +38,7 @@ export const Navbar = () => {
         input: "text-sm",
       }}
       endContent={
-       <></>
+        <></>
       }
       labelPlacement="outside"
       placeholder="Search..."
@@ -45,6 +48,35 @@ export const Navbar = () => {
       type="search"
     />
   );
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+  const [isSelected, setIsSelected] = useState(false);
+
+  // 当 Switch 状态变化时触发
+  const handleSwitchChange = (value: boolean | ((prevState: boolean) => boolean)) => {
+    setIsSelected(value);
+    console.log("Switch 当前状态:", value);
+  };
+
+  // 一般而言， 能够看到网页，说明配置肯定未启动，这里暂时不做获取，默认未开启实验特性
+  // useEffect(() => {
+  //   fetch("/adveancedConfig")
+  //     .then(response => response.json())
+  //     .then(data => {
+  //       setIsSelected(data.useBle);
+  //     });
+  // }, [])
+
+  // 保存实验特性配置
+  function saveAdvancedConfig() {
+    const params = new URLSearchParams({
+      enableBLE: isSelected ? "1" : "0",
+    });
+
+    fetch(`/adveancedConfig?${params.toString()}`, {
+      method: "POST",
+    });
+  }
 
   return (
     <NextUINavbar maxWidth="xl" position="sticky">
@@ -92,15 +124,70 @@ export const Navbar = () => {
         {/* <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem> */}
         <NavbarItem className="hidden md:flex">
           <Button
-            isExternal
-            as={Link}
+            // isExternal
+            // as={Link}
             className="text-sm font-normal text-default-600 bg-default-100"
-            href={siteConfig.links.sponsor}
+            // href={siteConfig.links.sponsor}
             startContent={<HeartFilledIcon className="text-danger" />}
             variant="flat"
+            onPress={onOpen}
           >
-            Sponsor
+            实验特性
           </Button>
+          <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+            <ModalContent>
+              {(onClose) => (
+                <>
+                  <ModalHeader className="flex flex-col gap-1">实验特性</ModalHeader>
+                  <ModalBody>
+                    <p>
+                      谨慎启用以下选项，重启后生效
+                    </p>
+                    <Switch
+                      isSelected={isSelected} // 绑定状态
+                      onValueChange={handleSwitchChange} // 状态变化时的回调
+                      classNames={{
+                        base: cn(
+                          "inline-flex flex-row-reverse w-full max-w-md bg-content1 hover:bg-content2 items-center",
+                          "justify-between cursor-pointer rounded-lg gap-2 p-4 border-2 border-transparent",
+                          "data-[selected=true]:border-primary",
+                        ),
+                        wrapper: "p-0 h-4 overflow-visible",
+                        thumb: cn(
+                          "w-6 h-6 border-2 shadow-lg",
+                          "group-data-[hover=true]:border-primary",
+                          //selected
+                          "group-data-[selected=true]:ms-6",
+                          // pressed
+                          "group-data-[pressed=true]:w-7",
+                          "group-data-[selected]:group-data-[pressed]:ms-4",
+                        ),
+                      }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <p className="text-medium">使用蓝牙进行配置</p>
+                        <p className="text-tiny text-default-400">
+                          蓝牙配置需要对应的程序配合
+                        </p>
+                      </div>
+                    </Switch>
+
+                  </ModalBody>
+                  <ModalFooter>
+                    <Button color="danger" variant="light" onPress={onClose}>
+                      关闭
+                    </Button>
+                    <Button color="primary" onPress={()=>{
+                      saveAdvancedConfig();
+                      onClose();
+                    }}>
+                      保存
+                    </Button>
+                  </ModalFooter>
+                </>
+              )}
+            </ModalContent>
+          </Modal>
         </NavbarItem>
       </NavbarContent>
 
@@ -112,7 +199,7 @@ export const Navbar = () => {
         <NavbarMenuToggle />
       </NavbarContent>
 
-       <NavbarMenu>
+      <NavbarMenu>
         {searchInput}
         <div className="mx-4 mt-2 flex flex-col gap-2">
           {siteConfig.navMenuItems.map((item, index) => (

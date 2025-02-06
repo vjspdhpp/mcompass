@@ -1,10 +1,8 @@
 import { Button } from "@nextui-org/button";
-import { Switch } from "@nextui-org/switch";
-import { SetStateAction, useEffect, useState } from "react";
-import { HexColorPicker } from "react-colorful";
+import { useEffect, useState } from "react";
 import { Slider } from "@heroui/slider";
 
-import { Select, SelectSection, SelectItem } from "@heroui/select";
+import { Select, SelectItem } from "@heroui/select";
 
 
 export const rainbowColors = [
@@ -17,65 +15,46 @@ export const rainbowColors = [
     { key: "violet", label: "Violet", color: "#8B00FF" },
 ];
 
-function useDebounce(cb: number, delay: number) {
-    const [debounceValue, setDebounceValue] = useState(cb);
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebounceValue(cb);
-        }, delay);
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [cb, delay]);
-    return debounceValue;
-}
-
-
 export default function ColorsPanel() {
     // 指针颜色
-    const [southColor, setSouthColor] = useState("#ff1414");
-    const [spawnColor, setSpawnColor] = useState("#ff1414");
+    const [southColor, setSouthColor] = useState("#FF1414");
+    const [spawnColor, setSpawnColor] = useState("#FF1414");
+    const [selectedSouthKey, setSelectedSouthKey] = useState<Set<string>>(new Set());
+    const [selectedSpawnKey, setSelectedSpawnKey] = useState<Set<string>>(new Set());
     // 亮度
     const [brightness, setBrightness] = useState(56);
 
-    const [debounceVal, setDebounceVal] = useState(56);
-
-    const debounceTimeout = 200; // 200ms debounce
-
-    const debounceValue = useDebounce(brightness, debounceTimeout);
-
     useEffect(() => {
-        console.log("Debounced:", brightness);
-        setDebounceVal(brightness);
-        fetch(`/brightness?brightness=${encodeURIComponent(brightness)}`, {
-            method: "POST",
-        });
-    }, [debounceValue]);
+        const findKeyByColor = (color: string) =>
+            rainbowColors.find(c => c.color.toUpperCase() === color.toUpperCase())?.key || "";
 
+        setSelectedSouthKey(new Set([findKeyByColor(southColor)]));
+        setSelectedSpawnKey(new Set([findKeyByColor(spawnColor)]));
+    }, [southColor, spawnColor]);
+
+    // useEffect(() => {
+    //     console.log("Debounced:", brightness);
+    //     setDebounceVal(brightness);
+    //     fetch(`/brightness?brightness=${encodeURIComponent(brightness)}`, {
+    //         method: "POST",
+    //     });
+    // }, [debounceValue]);
+    // 获取初始数据
     useEffect(() => {
         fetch("/pointColors")
             .then(response => response.json())
             .then(data => {
-                if (data.southColor && data.spawnColor) {
-                    setSouthColor(data.ssid);
-                    setSpawnColor(data.password);
-                }
+                setSouthColor(data.southColor || "#FF1414");
+                setSpawnColor(data.spawnColor || "#FF1414");
+                fetch("/brightness")
+                    .then(response => response.json())
+                    .then(data => {
+                        setBrightness(data.brightness || 56);
+                    });
             });
-        fetch("/brightness")
-            .then(response => response.json())
-            .then(data => {
-                if (data.brightness) {
-                    setBrightness(data.brightness);
-                }
-            });
-        fetch(`/brightness`).then(response => response.json())
-            .then(data => {
-                if (data.brightness) {
-                    setBrightness(data.brightness);
-                }
-            });
-    }, [southColor, spawnColor, brightness]);
+
+
+    }, []);
 
 
     const handleSliderChange = (value: number | number[]) => {
@@ -83,12 +62,19 @@ export default function ColorsPanel() {
             setBrightness(value);
         }
     };
+    const saveColors = () => {
+        const params = new URLSearchParams({
+            southColor: southColor,
+            spawnColor: spawnColor,
+        });
 
-    function saveColors() {
-        fetch(`/pointColors?southColor=${encodeURIComponent(southColor)}&spawnColor=${encodeURIComponent(spawnColor)}`, {
+        fetch(`/pointColors?${params.toString()}`, {
             method: "POST",
         });
-    }
+        fetch(`/brightness?brightness=${encodeURIComponent(brightness)}`, {
+            method: "POST",
+        });
+    };
 
     return <div className="w-full flex flex-col items-center justify-center flex-wrap gap-4">
         <p className="px-3 text-start w-full">自定义亮度和指针颜色,<br /> 亮度实时生效, 颜色重启后生效</p>
@@ -99,7 +85,7 @@ export default function ColorsPanel() {
             value={brightness}
             onChange={handleSliderChange} // 监听变化事件
             maxValue={100}
-            minValue={0}
+            minValue={1}
             step={1}
         />
         <Select
@@ -107,16 +93,42 @@ export default function ColorsPanel() {
             items={rainbowColors}
             label="指南针模式指针颜色"
             placeholder="请选择一种颜色"
+            selectedKeys={selectedSouthKey}
+            onSelectionChange={(keys) => {
+                const key = Array.from(keys)[0];
+                const color = rainbowColors.find(c => c.key === key)?.color || "#FF1414";
+                setSouthColor(color);
+            }}
         >
-            {(color) => <SelectItem>{color.label}</SelectItem>}
+            {(color) => (
+                <SelectItem
+                    key={color.key}
+                    startContent={<div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.color }} />}
+                >
+                    {color.label}
+                </SelectItem>
+            )}
         </Select>
         <Select
             className="max-w-xs"
             items={rainbowColors}
             label="出生针模式指针颜色"
             placeholder="请选择一种颜色"
+            selectedKeys={selectedSpawnKey}
+            onSelectionChange={(keys) => {
+                const key = Array.from(keys)[0];
+                const color = rainbowColors.find(c => c.key === key)?.color || "#FF1414";
+                setSpawnColor(color);
+            }}
         >
-            {(color) => <SelectItem>{color.label}</SelectItem>}
+            {(color) => (
+                <SelectItem
+                    key={color.key}
+                    startContent={<div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.color }} />}
+                >
+                    {color.label}
+                </SelectItem>
+            )}
         </Select>
         <Button color="primary" variant="ghost" className="max-w-xs w-full" onClick={saveColors}>
             保存
