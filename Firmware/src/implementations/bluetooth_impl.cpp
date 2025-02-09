@@ -2,32 +2,7 @@
 
 #include "func.h"
 #include "macro_def.h"
-
-/* 基础配置 */
-#define BASE_SERVICE_UUID (uint16_t)0xf000
-#define COLOR_CHARACTERISITC_UUID (uint16_t)(BASE_SERVICE_UUID + 1)  // 指针颜色
-#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2) // 方位角
-#define SPAWN_CHARACTERISTIC_UUID                                              \
-  (uint16_t)(BASE_SERVICE_UUID + 3)                                // 出生点信息
-#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4) // 设备信息
-
-/** 设备操作 */
-#define CONTROL_SERVICE_UUID (uint16_t)0xf100
-#define CALIBRATE_CHARACTERISTIC_UUID                                          \
-  (uint16_t)(CONTROL_SERVICE_UUID + 1) // 请求校准
-#define REBOOT_CHARACTERISTIC_UUID                                             \
-  (uint16_t)(CONTROL_SERVICE_UUID + 2) // 重启设备
-
-/** 高级配置  */
-#define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
-#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID                                  \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 1) // 虚拟坐标
-#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID                                   \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 2) // 虚拟方位角
-#define WEB_SERVER_CHARACHTERISTIC_UUID                                        \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 3) // 启用服务器API和网页服务
-#define BRIGHTNESS_CHARACHTERISTIC_UUID                                        \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 4) // 亮度控制
+#include "utils.h"
 
 static NimBLEServer *pServer;
 static TaskHandle_t gloopTaskHandle = NULL;
@@ -37,20 +12,8 @@ static bool clientConnected = false;
 // 服务工作状态
 static bool serverEnable = false;
 static size_t tick = 0;
-static std::vector<std::string> split(std::string &s,
-                                      const std::string &delimiter) {
-  std::vector<std::string> tokens;
-  size_t pos = 0;
-  std::string token;
-  while ((pos = s.find(delimiter)) != std::string::npos) {
-    token = s.substr(0, pos);
-    tokens.push_back(token);
-    s.erase(0, pos + delimiter.length());
-  }
-  tokens.push_back(s);
 
-  return tokens;
-}
+using namespace mcompass;
 
 /**  None of these are required as they will be handled by the library with
  *defaults. **
@@ -139,27 +102,27 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
             .latitude = latitude,
             .longitude = longitude,
         };
-        Preference::saveHomeLocation(location);
+        preference::saveHomeLocation(location);
       }
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(COLOR_CHARACTERISITC_UUID))) {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Color onWrite, Received data: %s", value.c_str());
-      std::vector<std::string> colors = split(value, ",");
+      std::vector<std::string> colors = utils::split(value, ",");
       if (colors.size() == 1) {
         PointerColor color;
-        Preference::getPointerColor(color);
+        preference::getPointerColor(color);
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
         if (endptr == colors[0].c_str() + 1) {
           color.southColor = southColor;
         }
-        Preference::savePointerColor(color);
+        preference::savePointerColor(color);
       } else if (colors.size() >= 2) {
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
         PointerColor color;
-        Preference::getPointerColor(color);
+        preference::getPointerColor(color);
         if (endptr == colors[0].c_str()) {
           ESP_LOGE(TAG, "Failed to parse southColor value");
         } else {
@@ -171,7 +134,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
         } else {
           color.spawnColor = spawnColor;
         }
-        Preference::savePointerColor(color);
+        preference::savePointerColor(color);
       } else {
         ESP_LOGE(TAG, "Failed to parse PointerColor value");
       }
@@ -195,7 +158,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
                    NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID))) {
       // uint8_t value = pCharacteristic->getValue().data;
       // ESP_LOGI(TAG, "WebServer onWrite, Received data: %s", value.c_str());
-      // Preference::setBrightness(value);
+      // preference::setBrightness(value);
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID))) {
       std::string value = pCharacteristic->getValue();
@@ -203,8 +166,8 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       if (value.length() == 1) {
         uint8_t brightness = static_cast<uint8_t>(value[0]);
         // 打印亮度值
-        Preference::setBrightness(brightness);
-        Pixel::setBrightness(brightness);
+        preference::setBrightness(brightness);
+        pixel::setBrightness(brightness);
       } else {
         ESP_LOGE(TAG, "Error: Invalid brightness value length");
       }
@@ -241,7 +204,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   }
 } chrCallbacks;
 
-void CompassBLE::init(Context *context) {
+void ble_server::init(Context *context) {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
   pServer = NimBLEDevice::createServer();
@@ -254,7 +217,7 @@ void CompassBLE::init(Context *context) {
       NimBLEUUID(COLOR_CHARACTERISITC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   PointerColor color;
-  Preference::getPointerColor(color);
+  preference::getPointerColor(color);
   char colorBuffer[24] = {0};
   sprintf(colorBuffer, "%x,%x", color.spawnColor, color.southColor);
   colorChar->setValue(colorBuffer);
@@ -270,7 +233,7 @@ void CompassBLE::init(Context *context) {
       NimBLEUUID(SPAWN_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   Location location;
-  Preference::getHomeLocation(location);
+  preference::getHomeLocation(location);
   char locationBuffer[24] = {0};
   sprintf(locationBuffer, "%.6f,%.6f", location.latitude, location.longitude);
   spawnChar->setValue(locationBuffer);
@@ -307,17 +270,14 @@ void CompassBLE::init(Context *context) {
   // 服务器模式
   NimBLECharacteristic *serverModeChar = advancedService->createCharacteristic(
       NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
-  bool useWiFi = DEFAULT_SERVER_MODE;
-  Preference::getWebServerConfig(useWiFi);
-  serverModeChar->setValue(useWiFi);
+  serverModeChar->setValue(context->serverMode);
   serverModeChar->setCallbacks(&chrCallbacks);
 
   // 亮度
   NimBLECharacteristic *brightnessChar = advancedService->createCharacteristic(
       NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID),
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
-  uint8_t brightness = DEFAULT_BRIGHTNESS;
-  Preference::getBrightness(brightness);
+  uint8_t brightness = context->brightness;
   brightnessChar->setValue(brightness);
   brightnessChar->setCallbacks(&chrCallbacks);
 
@@ -328,14 +288,14 @@ void CompassBLE::init(Context *context) {
   pAdvertising->setName("Lenovo");
   pAdvertising->addServiceUUID(baseService->getUUID());
   pAdvertising->addServiceUUID(advancedService->getUUID());
-  xTaskCreate(CompassBLE::bleTask, "bleTask", 4096, NULL, 2, &gloopTaskHandle);
+  xTaskCreate(ble_server::bleTask, "bleTask", 4096, NULL, 2, &gloopTaskHandle);
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
   serverEnable = true;
   Serial.printf("sssAdvertising Started\n");
 }
 
-void CompassBLE::bleTask(void *pvParameters) {
+void ble_server::bleTask(void *pvParameters) {
   while (1) {
     // 蓝牙自己的循环, 用于定时更新电子罗盘角度值.
     // 1.5s一次.
@@ -346,7 +306,7 @@ void CompassBLE::bleTask(void *pvParameters) {
       if (pSvc) {
         NimBLECharacteristic *pChr =
             pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
-        pChr->setValue(Compass::getAzimuth());
+        pChr->setValue(sensor::getAzimuth());
         if (pChr) {
           pChr->notify();
         }
@@ -355,7 +315,7 @@ void CompassBLE::bleTask(void *pvParameters) {
   }
 }
 
-void CompassBLE::disable() {
+void ble_server::disable() {
   tick++;
   if (tick < DEFAULT_SERVER_TICK_COUNT) {
     return;

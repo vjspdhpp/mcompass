@@ -1,7 +1,10 @@
 #include <FastLED.h>
 
 #include "compass_frames.h"
+#include "font.h"
 #include "func.h"
+#include "utils.h"
+using namespace mcompass;
 
 static CRGB leds[NUM_LEDS];
 
@@ -23,79 +26,6 @@ int ledMap[5][10] = {{-1, -1, 8, 9, 18, 19, 28, 29, 37, 38},
                      {-1, 3, 5, 12, 15, 22, 25, 32, 34, 41},
                      {-1, -1, 4, 13, 14, 23, 24, 33, -1, -1}};
 
-const uint8_t font[][5] = {
-    // 0
-    {0b111, 0b101, 0b101, 0b101, 0b111},
-    // 1
-    {0b010, 0b110, 0b010, 0b010, 0b111},
-    // 2
-    {0b111, 0b001, 0b111, 0b100, 0b111},
-    // 3
-    {0b111, 0b001, 0b111, 0b001, 0b111},
-    // 4
-    {0b101, 0b101, 0b111, 0b001, 0b001},
-    // 5
-    {0b111, 0b100, 0b111, 0b001, 0b111},
-    // 6
-    {0b111, 0b100, 0b111, 0b101, 0b111},
-    // 7
-    {0b111, 0b001, 0b001, 0b001, 0b001},
-    // 8
-    {0b111, 0b101, 0b111, 0b101, 0b111},
-    // 9
-    {0b111, 0b101, 0b111, 0b001, 0b111},
-    // a
-    {0b000, 0b111, 0b101, 0b111, 0b101},
-    // b
-    {0b100, 0b100, 0b111, 0b101, 0b111},
-    // c
-    {0b000, 0b111, 0b100, 0b100, 0b111},
-    // d
-    {0b001, 0b001, 0b111, 0b101, 0b111},
-    // e
-    {0b000, 0b111, 0b111, 0b100, 0b111},
-    // f
-    {0b011, 0b100, 0b111, 0b100, 0b100},
-    // g
-    {0b111, 0b101, 0b111, 0b001, 0b110},
-    // h
-    {0b100, 0b100, 0b111, 0b101, 0b101},
-    // i
-    {0b010, 0b000, 0b010, 0b010, 0b010},
-    // j
-    {0b001, 0b000, 0b001, 0b001, 0b110},
-    // k
-    {0b100, 0b101, 0b110, 0b101, 0b101},
-    // l
-    {0b110, 0b010, 0b010, 0b010, 0b111},
-    // m
-    {0b000, 0b101, 0b111, 0b101, 0b101},
-    // n
-    {0b000, 0b110, 0b101, 0b101, 0b101},
-    // o
-    {0b000, 0b111, 0b101, 0b101, 0b111},
-    // p
-    {0b000, 0b111, 0b101, 0b111, 0b100},
-    // q
-    {0b000, 0b111, 0b101, 0b111, 0b001},
-    // r
-    {0b000, 0b111, 0b101, 0b100, 0b100},
-    // s
-    {0b000, 0b111, 0b100, 0b001, 0b111},
-    // t
-    {0b010, 0b111, 0b010, 0b010, 0b011},
-    // u
-    {0b000, 0b101, 0b101, 0b101, 0b111},
-    // v
-    {0b000, 0b101, 0b101, 0b101, 0b010},
-    // w
-    {0b000, 0b101, 0b101, 0b111, 0b101},
-    // x
-    {0b000, 0b101, 0b010, 0b010, 0b101},
-    // y
-    {0b101, 0b101, 0b111, 0b001, 0b110},
-    // z
-    {0b000, 0b111, 0b001, 0b010, 0b111}};
 // 将物理坐标转换为LED索引
 int getLedIndex(uint8_t row, uint8_t col) {
   if (row >= 5 || col >= 10) return -1;
@@ -111,7 +41,7 @@ void drawPixel(uint8_t row, uint8_t col, uint32_t color) {
 }
 
 // 显示字符（支持滚动）
-void Pixel::drawChar(char c, int startX, int startY, uint32_t color) {
+void pixel::drawChar(char c, int startX, int startY, uint32_t color) {
   uint8_t charIndex = 0;
 
   // 字符映射（可扩展）
@@ -139,8 +69,8 @@ void Pixel::drawChar(char c, int startX, int startY, uint32_t color) {
 
       // 检查mask和字库数据
       if (mask[screenRow][screenCol]) {
-        bool on =
-            (font[charIndex][charRow] >> (2 - charCol)) & 1;  // 获取字库像素值
+        bool on = (font3x5[charIndex][charRow] >> (2 - charCol)) &
+                  1;  // 获取字库像素值
         if (on) {
           drawPixel(screenRow, screenCol, color);  // 绘制有效像素
         }
@@ -149,15 +79,15 @@ void Pixel::drawChar(char c, int startX, int startY, uint32_t color) {
   }
 }
 
-void Pixel::init(Context *context) {
+void pixel::init(Context *context) {
   uint8_t brightness = 64;
-  Preference::getBrightness(brightness);
+  preference::getBrightness(brightness);
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
   FastLED.setBrightness(brightness);
   ESP_LOGI(TAG, "set brightness %d", brightness);
 }
 
-void Pixel::bootAnimation(void (*callbackFn)()) {
+void pixel::bootAnimation(void (*callbackFn)()) {
   for (int i = 0; i < 59; i++) {
     showFrame(i % MAX_FRAME_INDEX);
     unsigned long start = millis();
@@ -172,7 +102,7 @@ void Pixel::bootAnimation(void (*callbackFn)()) {
   }
 }
 
-void Pixel::theNether() {
+void pixel::theNether() {
   // 当前帧索引
   static int curIndex = 0;
   // 目标帧索引
@@ -198,7 +128,7 @@ void Pixel::theNether() {
   }
 }
 
-void Pixel::showFrame(int index) {
+void pixel::showFrame(int index) {
   if (index > MAX_FRAME_INDEX || index < 0) {
     return;
   }
@@ -215,7 +145,7 @@ void Pixel::showFrame(int index) {
   FastLED.show();
 }
 
-void Pixel::showFrameByAzimuth(float azimuth) {
+void pixel::showByAzimuth(float azimuth) {
   if (azimuth < 0 || azimuth > 360) {
     // 不响应不合法的方位角
     return;
@@ -254,7 +184,7 @@ void Pixel::showFrameByAzimuth(float azimuth) {
   showFrame(index);
 }
 
-void Pixel::showFrameByBearing(float bearing, int azimuth) {
+void pixel::showFrameByBearing(float bearing, int azimuth) {
   // 当前方位角对应的索引
   int aIndex = (int)(azimuth / 360.0 * MAX_FRAME_INDEX);
   // 目标方位角对应的索引
@@ -267,16 +197,16 @@ void Pixel::showFrameByBearing(float bearing, int azimuth) {
   if (degree < 0) {
     degree += 360;
   }
-  showFrameByAzimuth(degree);
+  showByAzimuth(degree);
 }
 
-void Pixel::showFrameByLocation(float latA, float lonA, float latB, float lonB,
+void pixel::showFrameByLocation(float latA, float lonA, float latB, float lonB,
                                 int azimuth) {
-  float bearing = Compass::calculateBearing(latA, lonA, latB, lonB);
+  float bearing = utils::calculateBearing(latA, lonA, latB, lonB);
   showFrameByBearing(bearing, azimuth);
 }
 
-void Pixel::showSolid(int color) {
+void pixel::showSolid(int color) {
   fill_solid(leds, NUM_LEDS, CRGB(color));
   FastLED.show();
 }
@@ -310,110 +240,121 @@ static void showBouncing(int color) {
   FastLED.show();
 }
 
-void Pixel::showServerWifi() {
+void pixel::showServerWifi() {
   showBouncing(CRGB::Green);
   delay(100);
 }
 
-void Pixel::showServerSpawn() {
+void pixel::showServerSpawn() {
   showBouncing(CRGB::Blue);
   delay(100);
 }
 
-void Pixel::showServerInfo() {
+void pixel::showServerInfo() {
   showBouncing(CRGB::Red);
   delay(100);
 }
 
-void Pixel::pixelTask(void *pvParameters) {
-  Context *context = (Context *)pvParameters;
-  ESP_LOGW(TAG, "pixelTask get%p", &context);
-  while (1) {
-    ESP_LOGW(TAG, "context->deviceState %d", context->deviceState);
-    switch (context->deviceState) {
-      case STATE_LOST_BEARING:
-      case STATE_WAIT_GPS: {
-        // 等待GPS数据
-        Pixel::theNether();
-        delay(50);
-        continue;
-      }
-      // 罗盘模式
-      case STATE_COMPASS: {
-        float azimuth = Compass::getAzimuth();
-        // 指向地点
-        if (context->deviceType == CompassType::LocationCompass) {
-          Pixel::setPointerColor(context->color.spawnColor);
-          // 检测当前坐标是否合法
-          if (context->currentLoc.latitude != DEFAULT_INVALID_LOCATION_VALUE) {
-            Pixel::showFrameByLocation(context->targetLoc.latitude,
-                                       context->targetLoc.longitude,
-                                       context->currentLoc.latitude,
-                                       context->currentLoc.longitude, azimuth);
-            continue;
-          }
-          Pixel::setPointerColor(context->color.southColor);
-          ESP_LOGW(TAG, "Pixel::theNether(); %d", context->deviceType);
-          Pixel::theNether();
-          delay(50);
-          continue;
-        }
-        // 指向南方
-        context->forceTheNether ? Pixel::theNether()
-                                : Pixel::showFrameByAzimuth(360 - azimuth);
-        delay(50);
-        break;
-      }
+void pixel::pixelTask(void *pvParameters) {
+  // Context *context = (Context *)pvParameters;
+  // ESP_LOGW(TAG, "pixelTask get%p", &context);
+  // while (1) {
+  //   ESP_LOGW(TAG, "context->deviceState %d", context->deviceState);
+  //   switch (context->deviceState) {
+  //     case STATE_LOST_BEARING:
+  //     case STATE_WAIT_GPS: {
+  //       // 等待GPS数据
+  //       pixel::theNether();
+  //       delay(50);
+  //       continue;
+  //     }
+  //     // 罗盘模式
+  //     case STATE_COMPASS: {
+  //       float azimuth = mcompass::getAzimuth();
+  //       // 指向地点
+  //       if (context->workType == CompassType::LocationCompass) {
+  //         pixel::setPointerColor(context->color.spawnColor);
+  //         // 检测当前坐标是否合法
+  //         if (context->currentLoc.latitude != DEFAULT_INVALID_LOCATION_VALUE)
+  //         {
+  //           pixel::showFrameByLocation(context->targetLoc.latitude,
+  //                                      context->targetLoc.longitude,
+  //                                      context->currentLoc.latitude,
+  //                                      context->currentLoc.longitude,
+  //                                      azimuth);
+  //           continue;
+  //         }
+  //         pixel::setPointerColor(context->color.southColor);
+  //         ESP_LOGW(TAG, "pixel::theNether(); %d", context->workType);
+  //         pixel::theNether();
+  //         delay(50);
+  //         continue;
+  //       }
+  //       // 指向南方
+  //       context->forceTheNether ? pixel::theNether()
+  //                               : pixel::showFrameByAzimuth(360 - azimuth);
+  //       delay(50);
+  //       break;
+  //     }
 
-      case STATE_CALIBRATE: {
-        // 什么都不做，调用地方会自己处理的
-        // Compass::calibrateCompass();
-        break;
-      }
-      case STATE_CONNECT_WIFI:
-        Pixel::setPointerColor(CRGB::Green);
-        Pixel::showFrame(context->animationFrameIndex);
-        context->animationFrameIndex++;
-        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
-          context->animationFrameIndex = 0;
-        }
-        delay(30);
-        break;
-      case STATE_SERVER_COLORS: {
-        delay(50);
-        break;
-      }
-      case STATE_SERVER_WIFI: {
-        Pixel::showServerWifi();
-        break;
-      }
-      case STATE_SERVER_SPAWN: {
-        Pixel::showServerSpawn();
-        break;
-      }
-      case STATE_SERVER_INFO: {
-        Pixel::showServerInfo();
-        break;
-      }
-      case STATE_HOTSPOT: {
-        Pixel::setPointerColor(CRGB::Yellow);
-        Pixel::showFrame(context->animationFrameIndex);
-        context->animationFrameIndex++;
-        if (context->animationFrameIndex > MAX_FRAME_INDEX) {
-          context->animationFrameIndex = 0;
-        }
-        delay(30);
-        break;
-      }
-      default:
-        delay(50);
-        break;
-    }
-  }
+  //     case STATE_CALIBRATE: {
+  //       // 什么都不做，调用地方会自己处理的
+  //       // mcompass::calibrateCompass();
+  //       break;
+  //     }
+  //     case STATE_CONNECT_WIFI:
+  //       pixel::setPointerColor(CRGB::Green);
+  //       pixel::showFrame(context->animationFrameIndex);
+  //       context->animationFrameIndex++;
+  //       if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+  //         context->animationFrameIndex = 0;
+  //       }
+  //       delay(30);
+  //       break;
+  //     case STATE_SERVER_COLORS: {
+  //       delay(50);
+  //       break;
+  //     }
+  //     case STATE_SERVER_WIFI: {
+  //       pixel::showServerWifi();
+  //       break;
+  //     }
+  //     case STATE_SERVER_SPAWN: {
+  //       pixel::showServerSpawn();
+  //       break;
+  //     }
+  //     case STATE_SERVER_INFO: {
+  //       pixel::showServerInfo();
+  //       break;
+  //     }
+  //     case STATE_HOTSPOT: {
+  //       pixel::setPointerColor(CRGB::Yellow);
+  //       pixel::showFrame(context->animationFrameIndex);
+  //       context->animationFrameIndex++;
+  //       if (context->animationFrameIndex > MAX_FRAME_INDEX) {
+  //         context->animationFrameIndex = 0;
+  //       }
+  //       delay(30);
+  //       break;
+  //     }
+  //     default:
+  //       delay(50);
+  //       break;
+  //   }
+  // }
 }
 
-void Pixel::setBrightness(uint8_t brightness) {
+void pixel::setBrightness(uint8_t brightness) {
   FastLED.setBrightness(brightness);
 }
 
-void Pixel::setPointerColor(uint32_t pointColor) { pColor = pointColor; }
+void pixel::setPointerColor(uint32_t pointColor) { pColor = pointColor; }
+
+void pixel::counterDown(int seconds) {
+  for (int i = seconds; i > 0; i--) {
+    FastLED.clear();
+    drawChar('0' + i, 0, 0, CRGB::Red);
+    FastLED.show();
+    delay(1000);
+  }
+}

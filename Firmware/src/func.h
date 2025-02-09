@@ -5,44 +5,42 @@
 #include "common.h"
 #include "macro_def.h"
 
-namespace Board {
+namespace board {
 /**
  * @brief 板子硬件初始化
  */
-Context *init();
-void calibrateCheck();
-/**
- * @brief 按钮任务
- */
-void buttonTask(void *pvParameters);
-} // namespace Board
+mcompass::Context *init();
+}  // namespace board
 
-namespace Preference {
+namespace preference {
+/**
+ * @brief 初始化
+ */
+void init(mcompass::Context *context);
 /**
  * @brief 保存目标位置
  */
-void saveHomeLocation(Location location);
+void saveHomeLocation(mcompass::Location location);
 /**
  * @brief 获取目标位置
  */
-void getHomeLocation(Location &location);
+void getHomeLocation(mcompass::Location &location);
 /**
  * @brief 保存指针颜色
  */
-void savePointerColor(PointerColor color);
+void savePointerColor(mcompass::PointerColor color);
 /**
  * @brief 获取指针颜色
  */
-void getPointerColor(PointerColor &color);
+void getPointerColor(mcompass::PointerColor &color);
 /**
- * @brief 网页服务开关
- * @param useWiFi 使用网页进行配置
+ * @brief 设置服务器模式
  */
-void setWebServerConfig(bool useWiFi);
+void setServerMode(mcompass::ServerMode serverMode);
 /**
- * @brief 获取网页服务开关
+ * @brief 获取服务器模式
  */
-void getWebServerConfig(bool &useWiFi);
+void getServerMode(mcompass::ServerMode &serverMode);
 
 /**
  * @brief 设置LED亮度
@@ -62,23 +60,25 @@ void setWiFiCredentials(String ssid, String password);
 /**
  * @brief 获取当前的Wi-Fi SSID和密码
  */
-void getWiFiCredentials(String& ssid, String& password);
-} // namespace Preference
+void getWiFiCredentials(String &ssid, String &password);
 
-namespace Compass {
 /**
- * @brief 计算方位角
- * @param latA 目标位置纬度
- * @param lonA 目标位置经度
- * @param latB 当前位置纬度
- * @param lonB 当前位置经度
- * @return 方位角
+ * @brief 设置自定义设备型号
  */
-double calculateBearing(double lat1, double lon1, double lat2, double lon2);
-double complexDistance(double lat1, double lon1, double lat2, double lon2);
+void setCustomDeviceModel(mcompass::Model model);
 
-double simplifiedDistance(double lat1, double lon1, double lat2, double lon2);
+/**
+ * @brief 获取自定义设备型号
+ */
+void getCustomDeviceModel(mcompass::Model &model);
 
+/**
+ * @brief 设置出厂设置
+ */
+void factoryReset();
+}  // namespace preference
+
+namespace sensor {
 /**
  * @brief 校准罗盘
  */
@@ -97,35 +97,39 @@ bool isCompassAvailable();
 /**
  * @brief QMC5883初始化
  */
-void init(Context *context);
+void init(mcompass::Context *context);
 
-} // namespace Compass
+}  // namespace mcompass
 
-namespace GPS {
+namespace gps {
 /**
  * @brief GPS初始化
  */
-void init(Context *context);
+void init(mcompass::Context *context);
 /**
  * @brief GPS反初始化
  */
-void deinit(Context *context);
-/**
- * @brief 位置任务
- */
-void locationTask(void *pvParameters);
+void deinit(mcompass::Context *context);
 
+/**
+ * @brief 校验GPS坐标是否有效
+ *
+ * @param location
+ * @return true
+ * @return false
+ */
+bool isValidGPSLocation(mcompass::Location location);
 /**
  * @brief GPS 关闭
  */
 void disable();
-} // namespace GPS
+}  // namespace gps
 
-namespace Pixel {
+namespace pixel {
 /**
  * @brief LED初始化
  */
-void init(Context *context);
+void init(mcompass::Context *context);
 /**
  * @brief 启动动画
  */
@@ -146,10 +150,10 @@ void theNether();
  */
 void showFrame(int index);
 /**
- * @brief 根据方位角显示帧
+ * @brief 显示方位角
  * @param azimuth 方位角 范围应当是0~360
  */
-void showFrameByAzimuth(float azimuth);
+void showByAzimuth(float azimuth);
 /**
  * @brief 根据方位角显示帧
  * @param bearing 方位角
@@ -214,42 +218,47 @@ void setBrightness(uint8_t brightness);
  * @brief 设置指针颜色
  */
 void setPointerColor(uint32_t pointColor);
-} // namespace Pixel
 
-namespace CompassServer {
+/**
+ * @brief 倒计时
+ */
+void counterDown(int seconds);
+}  // namespace pixel
+
+namespace web_server {
 
 /**
  * @brief Web初始化
  */
-void init(Context *context);
+void init(mcompass::Context *context);
 
 /**
  * @brief 关闭本地网页服务
  */
-void endWebServer();
+void endServer();
 
 /**
  * @brief 是否可以关闭网页服务
  */
-bool shouldStopServer();
+bool shouldStop();
 
 /**
  * @brief 开启热点
  */
-void localHotspot(const char *ssid = "The Lost Compass");
+void startHotspot(const char *ssid = "The Lost Compass");
 
 /**
  * @brief 关闭热点
  */
 void stopHotspot();
-} // namespace CompassServer
+}  // namespace web_server
 
-namespace CompassBLE {
+namespace ble_server {
 
 /**
  * @brief 蓝牙初始化
  */
-void init(Context *context);
+void init(mcompass::Context *context);
 /**
  * @brief 蓝牙task
  */
@@ -258,4 +267,4 @@ void bleTask(void *pvParameters);
  * @brief 关闭蓝牙
  */
 void disable();
-} // namespace CompassBLE
+}  // namespace ble_server

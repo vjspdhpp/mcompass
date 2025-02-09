@@ -3,57 +3,69 @@
 #include <esp_log.h>
 #include <esp_wifi.h>
 
+#include "event.h"
 #include "func.h"
 
 static const char *TAG = "BOARD";
 static OneButton button(CALIBRATE_PIN, true);
-static Context context;
+static mcompass::Context context;
+static uint32_t last_time = 0;
 
 static void setupContext() {
-  context.currentLoc = {.latitude = DEFAULT_INVALID_LOCATION_VALUE,
-                        .longitude = DEFAULT_INVALID_LOCATION_VALUE};
-  // 天安门坐标39.908692, 116.397477
-  context.targetLoc = {.latitude = 39.908692f, .longitude = 116.397477f};
-  context.deviceState = CompassState::STATE_LOST_BEARING;
-  context.lastDeviceState = CompassState::STATE_LOST_BEARING;
-  context.deviceType = CompassType::LocationCompass;
-  context.animationFrameIndex = 0;
-  context.forceTheNether = false;
-  Preference::getWebServerConfig(context.enableBLE);
-  Preference::getPointerColor(context.color);
+  preference::init(&context);
+  // 输出上下文内容
+  ESP_LOGI(TAG,
+           "Context {\n "
+           "ServerMode:%d\n PointerColor{%x,%x}\n Brightness:%d\n "
+           "HomeLocation:{latitude:%.2f,longitude:%.2f}\n WiFi:%s\n Model:%d\n"
+           "}",
+           context.serverMode, context.color.spawnColor,
+           context.color.southColor, context.brightness,
+           context.targetLoc.latitude, context.targetLoc.longitude,
+           context.ssid, context.model);
 }
 
 // 校准检测
-void Board::calibrateCheck() {
+void calibrateCheck() {
   if (digitalRead(CALIBRATE_PIN) == LOW) {
-    context.deviceState = CompassState::STATE_CALIBRATE;
+    context.deviceState = mcompass::State::CALIBRATE;
   }
 }
 
-Context *Board::init() {
+mcompass::Context *board::init() {
+  // 初始化上下文
   setupContext();
+  // 设置引脚模式
   pinMode(CALIBRATE_PIN, INPUT_PULLUP);
   pinMode(GPS_EN_PIN, OUTPUT);
+  // 关闭GPS电源
   digitalWrite(GPS_EN_PIN, HIGH);
-
+  // 初始化串口
   Serial.begin(115200);
-  Pixel::init(&context);
-  Compass::init(&context);
-  GPS::init(&context);
-
+  // 初始化LED
+  pixel::init(&context);
+  // 初始化罗盘传感器
+  sensor::init(&context);
+  // GPS型号才需要初始化GPS
+  if (context.model == mcompass::Model::GPS) {
+    gps::init(&context);
+  }
+  /////////////////////// 初始化按钮 ///////////////////////
+  // 单击事件
   button.attachClick(
       [](void *scope) {
         switch (context.deviceState) {
-          case CompassState::STATE_COMPASS: {
-            if (context.deviceType == CompassType::LocationCompass) {
-              context.deviceType = CompassType::SouthCompass;
-            } else {
-              context.deviceType = CompassType::LocationCompass;
-            }
+          // COMPASS模式下响应单击事件
+          case mcompass::State::COMPASS: {
+            // 切换罗盘工作类型
+            mcompass::WorkType workType =
+                context.workType == mcompass::WorkType::SPAWN
+                    ? mcompass::WorkType::SOUTH
+                    : mcompass::WorkType::SPAWN;
             ESP_LOGI(TAG, "Toggle Compass Type to %s",
-                     context.deviceType == CompassType::LocationCompass
-                         ? "LocationCompass"
-                         : "SouthCompass");
+                     workType == mcompass::WorkType::SPAWN ? "LocationCompass"
+                                                           : "SouthCompass");
+            context.workType = workType;
             break;
           }
 
@@ -62,34 +74,42 @@ Context *Board::init() {
         }
       },
       &button);
+  // 长按事件
   button.attachLongPressStart(
       [](void *scope) {
         switch (context.deviceState) {
-          case CompassState::STATE_COMPASS: {
-            if (context.deviceType == CompassType::LocationCompass) {
-              // 设置当前地点为Home
-              // 检查GPS状态
-              if (context.currentLoc.latitude < 500.0f) {
-                Preference::saveHomeLocation(context.currentLoc);
+          // COMPASS模式下响应长按事件
+          case mcompass::State::COMPASS: {
+            // 出生针模式下， 长按设置新的出生点
+            if (context.workType == mcompass::WorkType::SPAWN) {
+              // 检查GPS坐标是否有效
+              if (gps::isValidGPSLocation(context.currentLoc)) {
+                preference::saveHomeLocation(context.currentLoc);
                 memcpy(&context.targetLoc, &context.currentLoc,
-                       sizeof(Location));
-                ESP_LOGI(TAG, "Set Home");
+                       sizeof(mcompass::Location));
+                ESP_LOGI(TAG, "Set New Home Location to {%.2f,%.2f}",
+                         context.currentLoc.latitude,
+                         context.currentLoc.longitude);
               } else {
-                ESP_LOGI(TAG, "Can't set home, no GPS data.");
+                ESP_LOGW(TAG, "Can't set home, invalid GPS data.");
               }
-            } else {
-              // 指南针模式下长按切换到theNether
-              context.forceTheNether = !context.forceTheNether;
+            } else if (context.workType == mcompass::WorkType::SOUTH) {
+              // 指南针模式下， 长按切换数据源到nether
+              ESP_LOGI(TAG, "Switch Data Source to Nether");
+              context.subscribeSource = Event::Source::NETHER;
             }
             break;
           }
-          case CompassState::STATE_CONNECT_WIFI: {
+          // 连接WiFi模式下， 长按清空所有数据
+          case mcompass::State::CONNECT_WIFI: {
             ESP_LOGW(TAG, "Clear WiFi");
-            // 清空WiFi配置
-            wifi_config_t config;
-            esp_wifi_set_config(WIFI_IF_STA, &config);
-            delay(3000);
+            // 配置恢复出厂设置
+            // 倒计时3秒
+            pixel::counterDown(3);
+            preference::factoryReset();
+            // 重启
             esp_restart();
+            break;
           }
 
           default:
@@ -97,25 +117,40 @@ Context *Board::init() {
         }
       },
       &button);
-  ESP_LOGI(TAG, "WebServerConfig:%s ",
-           !context.enableBLE ? "CompassServer" : "CompassBLE");
-  if (context.enableBLE) {
-    CompassBLE::init(&context);
-  } else {
-    CompassServer::init(&context);
-  }
-  context.deviceState = STATE_COMPASS;
 
-  // 获取目标位置
-  Preference::getHomeLocation(context.targetLoc);
-  ESP_LOGI(TAG, "target Location:%f,%f ", context.targetLoc.latitude,
-           context.targetLoc.longitude);
+  /////////////////////// 根据服务器模式初始化 ///////////////////////
+  context.serverMode == mcompass::ServerMode::BLE ? ble_server::init(&context)
+                                                  : web_server::init(&context);
+
+  /////////////////////// 创建按钮定时器 ///////////////////////
+  esp_timer_handle_t timer;
+  esp_timer_create_args_t timer_args = {
+      .callback = [](void *) { button.tick(); },
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "button_timer",
+      .skip_unhandled_events = true};
+  esp_timer_create(&timer_args, &timer);
+  esp_timer_start_periodic(timer, 10000);  // 10ms = 10000us
+  /////////////////////// 创建传感器定时器 ///////////////////////
+  esp_timer_handle_t sensor_timer;
+  esp_timer_create_args_t sensor_timer_args = {
+      .callback =
+          [](void *) {
+            context.lastAzimuth = context.azimuth;
+            context.azimuth = sensor::getAzimuth();
+            Event::Body event;
+            event.type = Event::Type::AZIMUTH;
+            event.source = Event::Source::SENSOR;
+            event.azimuth.angle = context.azimuth;
+            esp_event_post_to(context.eventLoop, MCOMPASS_EVENT, 0, &event,
+                              sizeof(event), 0);
+          },
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "sensor_timer",
+      .skip_unhandled_events = true};
+  esp_timer_create(&sensor_timer_args, &sensor_timer);
+  esp_timer_start_periodic(sensor_timer, 10000);  // 10ms = 10000us
   return &context;
-}
-
-void Board::buttonTask(void *pvParameters) {
-  while (1) {
-    button.tick();
-    delay(10);
-  }
 }

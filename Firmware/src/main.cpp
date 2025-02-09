@@ -5,58 +5,54 @@
 #include <esp_log.h>
 #include <esp_task_wdt.h>
 
+#include "event.h"
 #include "func.h"
 
-static const char *TAG = "MAIN";
-static Context *context;
+ESP_EVENT_DEFINE_BASE(MCOMPASS_EVENT);
 
+static const char *TAG = "MAIN";
+static mcompass::Context *context;
+
+void event_dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
+                      void *event_data) {
+  static uint32_t last_update = 0;
+  Event::Body *evt = (Event::Body *)event_data;
+
+  switch (evt->type) {
+    case Event::Type::AZIMUTH:
+      if (context->deviceState == mcompass::State::COMPASS) {
+        if (millis() - last_update >= 33) {  // 30Hz刷新率
+          pixel::showByAzimuth(evt->azimuth.angle);
+          last_update = millis();
+        }
+      }
+      break;
+    case Event::Type::MARQUEE:
+      // 根据文本数据进行处理，如显示跑马灯效果
+      break;
+    default:
+      break;
+  }
+}
 void setup() {
   // 延时,用于一些特殊情况下能够重新烧录
   delay(2000);
+  Serial.begin(115200);
   // 初始化硬件相关, 返回Context
-  context = Board::init();
-  // 显示指针启动动画, 顺便检测要不要校准, 由于locationTask已经开始执行,
-  // 如果在bootAnimation的1.5秒内GPS有数据,视作有GPS, context->hasGPS被置为true
-  Pixel::bootAnimation(Board::calibrateCheck);
-  // 创建位置任务
-  xTaskCreate(GPS::locationTask, "locationTask", 4096, context, 6,
-              &context->gpsTaskHandle);
-  ESP_LOGW(TAG, "xTaskCreate done.locationTask");
-  // 创建显示任务
-  xTaskCreate(Board::buttonTask, "buttonTask", 4096, context, 6, NULL);
-  ESP_LOGW(TAG, "xTaskCreate done.button");
-  xTaskCreate(Pixel::pixelTask, "pixelTask", 4096, context, 1, NULL);
-  ESP_LOGW(TAG, "xTaskCreate done.pixelTask %p", context);
-  if (!context->hasGPS) {
-    // 没有GPS的话会默认进入指南模式
-    context->deviceType = CompassType::SouthCompass;
-    ESP_LOGW(TAG, "GPS Module Not Found!");
-  }
-  // 按需校准
-  if (context->deviceState == CompassState::STATE_CALIBRATE) {
-    Compass::calibrateCompass();
-  }
-  // 校准结束
-  context->deviceState = STATE_COMPASS;
-  ESP_LOGW(TAG, "setup done!");
+  context = board::init();
+  // 创建事件循环（这里使用自定义事件循环）
+  esp_event_loop_args_t loop_args = {
+      .queue_size = 128,
+      .task_name = "event_loop",
+      .task_priority = configMAX_PRIORITIES - 1,
+      .task_stack_size = 2048,
+  };
+
+  esp_event_loop_create(&loop_args, &context->eventLoop);
+
+  // 注册事件处理程序
+  esp_event_handler_register_with(context->eventLoop, MCOMPASS_EVENT, 0,
+                                  event_dispatcher, NULL);
 }
 
-void loop() {
-  delay(1000);
-  // 服务自身决定是否需要真的关闭
-  if (context->useWiFi) {
-    // 关闭本地网页服务
-    CompassServer::endWebServer();
-  } else {
-    CompassBLE::disable();
-  }
-  // 启动后60秒内没有检测到GPS模块, 关闭GPS的TASK
-  if (millis() < DEFAULT_GPS_DETECT_TIMEOUT || context->hasGPS) {
-    return;
-  }
-  if (context->gpsTaskHandle != NULL) {
-    ESP_LOGW(TAG, "Delete GPS Task");
-    vTaskDelete(context->gpsTaskHandle);
-    context->gpsTaskHandle = NULL;
-  }
-}
+void loop() { delay(200); }

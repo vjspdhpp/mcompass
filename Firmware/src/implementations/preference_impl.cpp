@@ -3,19 +3,23 @@
 #include "func.h"
 #include "macro_def.h"
 
-#define PREFERENCE_NAME "mcompass"  // 配置文件名称
-
-#define LATITUDE_KEY "latitude"       // 纬度Key
-#define LONGTITUDE_KEY "longitude"    // 经度Key
-#define SPAWN_COLOR_KEY "spawnColor"  // 出生针颜色
-#define SOUTH_COLOR_KEY "southColor"  // 指南针颜色
-#define SERVER_MODE_KEY "serverMode"  // 配置模式
-#define WIFI_SSID_KEY "SSID"          // WiFi账号
-#define WIFI_PWD_KEY "PWD"            // WiFi账号
-#define BRIGHTNESS_KEY "brightness"   // 亮度
-
 static const char *TAG = "Preference";
-void Preference::saveHomeLocation(Location location) {
+using namespace mcompass;
+static Context *ctx;
+
+void preference::init(Context *context) {
+  ctx = context;
+  preference::getServerMode(ctx->serverMode);
+  preference::getPointerColor(ctx->color);
+  preference::getBrightness(ctx->brightness);
+  preference::getHomeLocation(ctx->targetLoc);
+  preference::getWiFiCredentials(ctx->ssid, ctx->password);
+  preference::getCustomDeviceModel(ctx->model);
+}
+
+void preference::saveHomeLocation(Location location) {
+  ctx->targetLoc.latitude = location.latitude;
+  ctx->targetLoc.longitude = location.longitude;
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putFloat(LATITUDE_KEY, location.latitude);
@@ -23,7 +27,7 @@ void Preference::saveHomeLocation(Location location) {
   preferences.end();
 }
 
-void Preference::getHomeLocation(Location &location) {
+void preference::getHomeLocation(Location &location) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(LATITUDE_KEY) || !preferences.isKey(LONGTITUDE_KEY)) {
@@ -36,7 +40,9 @@ void Preference::getHomeLocation(Location &location) {
   preferences.end();
 }
 
-void Preference::savePointerColor(PointerColor color) {
+void preference::savePointerColor(PointerColor color) {
+  ctx->color.spawnColor = color.spawnColor;
+  ctx->color.southColor = color.southColor;
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putInt(SPAWN_COLOR_KEY, color.spawnColor);
@@ -46,7 +52,7 @@ void Preference::savePointerColor(PointerColor color) {
            color.southColor);
 }
 
-void Preference::getPointerColor(PointerColor &color) {
+void preference::getPointerColor(PointerColor &color) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(SPAWN_COLOR_KEY) ||
@@ -64,45 +70,50 @@ void Preference::getPointerColor(PointerColor &color) {
   preferences.end();
 }
 
-void Preference::setWebServerConfig(bool enableBLE) {
+void preference::setServerMode(ServerMode serverMode) {
+  ctx->serverMode = serverMode;
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
-  preferences.putBool(SERVER_MODE_KEY, enableBLE);
+  preferences.putInt(SERVER_MODE_KEY, static_cast<int>(serverMode));
   preferences.end();
 }
 
-void Preference::getWebServerConfig(bool &enableBLE) {
+void preference::getServerMode(ServerMode &serverMode) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(SERVER_MODE_KEY)) {
     preferences.end();
-    enableBLE = DEFAULT_SERVER_MODE;
+    serverMode = DEFAULT_SERVER_MODE;
     return;
   }
-  enableBLE = preferences.getBool(SERVER_MODE_KEY, DEFAULT_SERVER_MODE);
+  serverMode = static_cast<ServerMode>(
+      preferences.getInt(SERVER_MODE_KEY, DEFAULT_SERVER_MODE));
   preferences.end();
 }
 
-void Preference::setBrightness(uint8_t brightness) {
+void preference::setBrightness(uint8_t brightness) {
+  ctx->brightness = brightness;
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putUChar(BRIGHTNESS_KEY, brightness);
   preferences.end();
 }
 
-void Preference::getBrightness(uint8_t &setBrightness) {
+void preference::getBrightness(uint8_t &brightness) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(BRIGHTNESS_KEY)) {
     preferences.end();
     return;
   }
-  setBrightness = preferences.getUChar(BRIGHTNESS_KEY, 64);
-  ESP_LOGE(TAG, "preferences.getUChar(BRIGHTNESS_KEY)=%d", setBrightness);
+  brightness = preferences.getUChar(BRIGHTNESS_KEY, 64);
+  ESP_LOGE(TAG, "preferences.getUChar(BRIGHTNESS_KEY)=%d", brightness);
   preferences.end();
 }
 
-void Preference::setWiFiCredentials(String ssid, String password) {
+void preference::setWiFiCredentials(String ssid, String password) {
+  ctx->ssid = ssid;
+  ctx->password = password;
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putString(WIFI_SSID_KEY, ssid);
@@ -110,7 +121,7 @@ void Preference::setWiFiCredentials(String ssid, String password) {
   preferences.end();
 }
 
-void Preference::getWiFiCredentials(String &ssid, String &password) {
+void preference::getWiFiCredentials(String &ssid, String &password) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(WIFI_SSID_KEY) && !preferences.isKey(WIFI_PWD_KEY)) {
@@ -120,5 +131,31 @@ void Preference::getWiFiCredentials(String &ssid, String &password) {
 
   ssid = preferences.getString(WIFI_SSID_KEY);
   password = preferences.getString(WIFI_PWD_KEY);
+  preferences.end();
+}
+
+void preference::factoryReset() {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.clear();
+  preferences.end();
+}
+
+void preference::setCustomDeviceModel(mcompass::Model model) {
+  ctx->model = model;
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putInt(MODEL_KEY, static_cast<int>(model));
+  preferences.end();
+}
+
+void preference::getCustomDeviceModel(mcompass::Model &model) {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  if (!preferences.isKey(MODEL_KEY)) {
+    preferences.end();
+    return;
+  }
+  model = static_cast<mcompass::Model>(preferences.getInt(MODEL_KEY, DEFAULT_MODEL));
   preferences.end();
 }
