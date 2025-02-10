@@ -13,34 +13,26 @@ enum Model {
 
 /// @brief 罗盘状态
 enum State {
-  UNDEFINED = -1,      // 未定义
-  LOST_BEARING = 0,    // 丢失方位
-  WAIT_GPS = 1,        // 等待GPS信号
-  COMPASS = 2,         // 罗盘工作状态
-  CONNECT_WIFI = 3,    // 连接WiFi中
-  CALIBRATE = 4,       // 校准中
-  SERVER_COLORS = 10,  // 网页颜色选项卡激活
-  SERVER_INDEX,        // 控制指定索引的frame
-  SERVER_WIFI,         // 网页WiFi选项卡激活
-  SERVER_SPAWN,        // 网页出生点选项卡激活
-  SERVER_INFO,         // 网页信息选项卡激活
-  GAME_COMPASS = 100,  // 游戏联动罗盘中
-  HOTSPOT = 200        // WiFi热点状态中
+  STARTING = -1,  // 启动中
+  CALIBRATE = 0,  // 校准
+  COMPASS = 2,    // 可以指示方位的工作状态
+  INFO = 3,       // 显示文字的状态,不再处理方位角数据
+  FATAL = 10,     // 严重错误,无法忽略
 };
 
 /// @brief 罗盘工作模式
 enum WorkType {
-  SPAWN,  // 地点指针
+  SPAWN,  // 出生指针
   SOUTH,  // 指南针
 };
 
 /// @brief 坐标
 struct Location {
-  float latitude;
-  float longitude;
+  float latitude;   // 维度
+  float longitude;  // 经度
 };
 
-// 定义距离阈值和对应休眠时间的结构
+/// @brief 定义距离阈值和对应休眠时间的结构
 struct SleepConfig {
   float distanceThreshold;  // 距离阈值(KM)
   int sleepInterval;        // 休眠时间(秒)
@@ -55,30 +47,113 @@ struct PointerColor {
 
 /// @brief 服务器模式
 enum ServerMode {
-  WIFI = 0,
-  BLE = 1,
+  WIFI = 0,  // 网页服务器
+  BLE = 1,   // 蓝牙服务器
 };
 
 /// @brief 上下文
-struct Context {
-  Model model = DEFAULT_MODEL;               // 罗盘型号
-  State deviceState = State::COMPASS;        // 设备状态
-  State lastDeviceState = State::UNDEFINED;  // 上一次设备状态
-  WorkType workType =
-      model == Model::GPS ? WorkType::SPAWN : WorkType::SOUTH;  // 罗盘的类型
-  bool detectGPS = false;                                       // 是否检测到GPS
-  bool hasSensor = false;                       // 是否检测到传感器
-  PointerColor color;                           // 指针颜色， 也会用作文字的颜色
-  Location currentLoc;                          // 当前位置
-  Location targetLoc{39.908692f, 116.397477f};  // 目标位置, 默认设置到天安门
-  ServerMode serverMode = DEFAULT_SERVER_MODE;  // 服务器模式
-  uint8_t brightness = DEFAULT_BRIGHTNESS;      // 亮度
-  String ssid = "";                             // WiFi SSID
-  String password = "";                         // WiFi 密码
-  Event::Source subscribeSource = Event::Source::SENSOR;  // 订阅的事件源
-  int azimuth = 0;                                        // 方位角
-  int lastAzimuth = 0;                                    // 上一次方位角
-  esp_event_loop_handle_t eventLoop;                      // 事件循环
+class Context {
+ public:
+  // 获取单例对象
+  static Context& getInstance() {
+    static Context instance;
+    return instance;
+  }
+
+  // 禁止拷贝构造和赋值操作
+  Context(const Context&) = delete;
+  Context& operator=(const Context&) = delete;
+
+  Model setModel(Model model) { this->model = model; }
+
+  Model getModel() const { return model; }
+
+  bool isModel(const Model model) { return this->model == model; }
+
+  bool isGPSModel() { return this->isModel(mcompass::Model::GPS); }
+
+  State getDeviceState() const { return deviceState; }
+  void setDeviceState(State state) { deviceState = state; }
+
+  State getLastDeviceState() const { return lastDeviceState; }
+  void setLastDeviceState(State state) { lastDeviceState = state; }
+
+  WorkType getWorkType() const { return workType; }
+  void setWorkType(WorkType wt) { workType = wt; }
+  void toggleWorkType() {
+    setWorkType(workType == mcompass::WorkType::SPAWN
+                    ? mcompass::WorkType::SOUTH
+                    : mcompass::WorkType::SPAWN);
+  }
+
+  bool getDetectGPS() const { return detectGPS; }
+  void setDetectGPS(bool detect) { detectGPS = detect; }
+
+  bool getHasSensor() const { return hasSensor; }
+  void setHasSensor(bool sensor) { hasSensor = sensor; }
+
+  PointerColor getColor() const { return color; }
+  void setColor(PointerColor c) { color = c; }
+
+  Location getCurrentLoc() const { return currentLoc; }
+  void setCurrentLoc(const Location& loc) { currentLoc = loc; }
+
+  Location getTargetLoc() const { return targetLoc; }
+  void setTargetLoc(const Location& loc) { targetLoc = loc; }
+
+  ServerMode getServerMode() const { return serverMode; }
+  void setServerMode(ServerMode mode) { serverMode = mode; }
+
+  uint8_t getBrightness() const { return brightness; }
+  void setBrightness(uint8_t bright) { brightness = bright; }
+
+  String getSsid() const { return ssid; }
+  void setSsid(const String& id) { ssid = id; }
+
+  String getPassword() const { return password; }
+  void setPassword(const String& pass) { password = pass; }
+
+  Event::Source getSubscribeSource() const { return subscribeSource; }
+  void setSubscribeSource(Event::Source src) { subscribeSource = src; }
+
+  int getAzimuth() const { return azimuth; }
+  void setAzimuth(int azi) {
+    setLastAzimuth(azimuth);
+    azimuth = azi;
+  }
+
+  int getLastAzimuth() const { return lastAzimuth; }
+  void setLastAzimuth(int azi) { lastAzimuth = azi; }
+
+  esp_event_loop_handle_t getEventLoop() { return eventLoop; }
+
+ private:
+  // 私有构造函数，确保外部不能直接创建对象
+  Context() = default;
+  ~Context() = default;
+
+  // 内部变量定义
+
+  // 静态常量成员需在 .cpp 文件中定义（或使用 inline 变量，C++17以后）
+  Model model;
+  State deviceState = State::COMPASS;
+  State lastDeviceState = State::STARTING;
+  // 根据 model 判断默认的工作类型
+  WorkType workType = (model == Model::GPS ? WorkType::SPAWN : WorkType::SOUTH);
+  bool detectGPS = false;
+  bool hasSensor = false;
+  PointerColor color;   // 默认构造，具体初值请根据需求设置
+  Location currentLoc;  // 当前位置，初值默认构造
+  // 默认目标位置设置为天安门经纬度（示例值）
+  Location targetLoc{39.908692f, 116.397477f};
+  ServerMode serverMode = DEFAULT_SERVER_MODE;
+  uint8_t brightness = DEFAULT_BRIGHTNESS;
+  String ssid = "";
+  String password = "";
+  Event::Source subscribeSource = Event::Source::SENSOR;
+  int azimuth = 0;
+  int lastAzimuth = 0;
+  esp_event_loop_handle_t eventLoop;
 };
 
 }  // namespace mcompass

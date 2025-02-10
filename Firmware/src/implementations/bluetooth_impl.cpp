@@ -270,14 +270,14 @@ void ble_server::init(Context *context) {
   // 服务器模式
   NimBLECharacteristic *serverModeChar = advancedService->createCharacteristic(
       NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
-  serverModeChar->setValue(context->serverMode);
+  serverModeChar->setValue(context->getServerMode());
   serverModeChar->setCallbacks(&chrCallbacks);
 
   // 亮度
   NimBLECharacteristic *brightnessChar = advancedService->createCharacteristic(
       NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID),
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
-  uint8_t brightness = context->brightness;
+  uint8_t brightness = context->getBrightness();
   brightnessChar->setValue(brightness);
   brightnessChar->setCallbacks(&chrCallbacks);
 

@@ -23,9 +23,9 @@ const char* Event::SourceToString(Source source) {
 const char* Event::TypeToString(Type type) {
   switch (type) {
     case Type::AZIMUTH:
-      return "Azimuth";
+      return "AZIMUTH";
     case Type::MARQUEE:
-      return "Marquee";
+      return "MARQUEE";
     default:
       return "Unknown EventType";
   }

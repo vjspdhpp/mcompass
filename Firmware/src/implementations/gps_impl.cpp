@@ -36,47 +36,50 @@ void gps::init(mcompass::Context *context) {
               if (tinygps.encode(t)) {
                 // 有串口数据, 说明可能接了GPS
                 auto context = static_cast<mcompass::Context *>(arg);
-                context->detectGPS = true;
+                context->setDetectGPS(true);
                 // 有效的GPS编码数据
-                if (tinygps.location.isValid()) {
-                  ESP_LOGD(TAG, "Location:  %f, %f", tinygps.location.lat(),
-                           tinygps.location.lng());
-                  // 坐标有效情况下更新本地坐标
-                  context->currentLoc.latitude =
-                      static_cast<float>(tinygps.location.lat());
-                  context->currentLoc.longitude =
-                      static_cast<float>(tinygps.location.lng());
-                  // 计算两地距离
-                  double distance =
-                      utils::complexDistance(context->currentLoc.latitude,
-                                             context->currentLoc.longitude,
-                                             context->targetLoc.latitude,
-                                             context->targetLoc.longitude);
-                  ESP_LOGI(TAG, "%f km to target.\n", distance);
-                  // 获取最接近的临界值
-                  float threshholdDistance = 0;
-                  size_t sleepConfigSize =
-                      sizeof(sleepConfigs) / sizeof(mcompass::SleepConfig);
-                  for (int i = sleepConfigSize - 1; i >= 0; i--) {
-                    if (distance >= sleepConfigs[i].distanceThreshold) {
-                      threshholdDistance = sleepConfigs[i].distanceThreshold;
-                      ESP_LOGI(TAG, "use threshold %f km", threshholdDistance);
-                      break;
-                    }
+                if (!tinygps.location.isValid()) {
+                  return;
+                }
+                ESP_LOGD(TAG, "Location:  %f, %f", tinygps.location.lat(),
+                         tinygps.location.lng());
+                mcompass::Location lastestLocation;
+                lastestLocation.latitude =
+                    static_cast<float>(tinygps.location.lat());
+                lastestLocation.longitude =
+                    static_cast<float>(tinygps.location.lng());
+                // 坐标有效情况下更新本地坐标
+                context->setCurrentLoc(lastestLocation);
+                // 计算两地距离
+                auto currentLoc = context->getCurrentLoc();
+                auto targetLoc = context->getTargetLoc();
+                double distance = utils::complexDistance(
+                    currentLoc.latitude, currentLoc.longitude,
+                    targetLoc.latitude, targetLoc.longitude);
+                ESP_LOGI(TAG, "%f km to target.\n", distance);
+                // 获取最接近的临界值
+                float threshholdDistance = 0;
+                size_t sleepConfigSize =
+                    sizeof(sleepConfigs) / sizeof(mcompass::SleepConfig);
+                for (int i = sleepConfigSize - 1; i >= 0; i--) {
+                  if (distance >= sleepConfigs[i].distanceThreshold) {
+                    threshholdDistance = sleepConfigs[i].distanceThreshold;
+                    ESP_LOGI(TAG, "use threshold %f km", threshholdDistance);
+                    break;
                   }
-                  float modDistance = fmod(distance, threshholdDistance);
-                  // 根据距离调整GPS休眠时间,
-                  for (int i = 0; i < sleepConfigSize; i++) {
-                    if (modDistance <= sleepConfigs[i].distanceThreshold) {
-                      gpsSleepInterval = sleepConfigs[i].sleepInterval;
-                      if (sleepConfigs[i].gpsPowerEn) {
-                        digitalWrite(GPS_EN_PIN, LOW);
-                      } else {
-                        digitalWrite(GPS_EN_PIN, HIGH);
-                      }
-                      ESP_LOGI(TAG, "GPS Sleep %d seconds\n", gpsSleepInterval);
-                      break;
+                }
+                float modDistance = fmod(distance, threshholdDistance);
+                // 根据距离调整GPS休眠时间,
+                for (int i = 0; i < sleepConfigSize; i++) {
+                  if (modDistance <= sleepConfigs[i].distanceThreshold) {
+                    gpsSleepInterval = sleepConfigs[i].sleepInterval;
+                    if (sleepConfigs[i].gpsPowerEn) {
+                      digitalWrite(GPS_EN_PIN, LOW);
+                    } else {
+                      digitalWrite(GPS_EN_PIN, HIGH);
                     }
+                    ESP_LOGI(TAG, "GPS Sleep %d seconds\n", gpsSleepInterval);
+                    break;
                   }
                 }
               } else {

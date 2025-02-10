@@ -49,14 +49,13 @@ static void apis(void) {
   // 获取设备信息
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    ctx->deviceState = State::SERVER_INFO;
     String json = "{\"buildDate\":\"" + String(__DATE__) +
                   "\",\"buildTime\":\"" + String(__TIME__) +
                   "\",\"buildVersion\":\"" + String(BUILD_VERSION) +
                   "\",\"gitBranch\":\"" + String(GIT_BRANCH) +
-                  "\",\"gpsStatus\":\"" + (ctx->detectGPS ? "1" : "0") +
-                  "\",\"model\":\"" + (ctx->model == Model::LITE ? "0" : "1") +
-                  "\",\"sensorStatus\":\"" + (ctx->hasSensor ? "1" : "0") +
+                  "\",\"gpsStatus\":\"" + (ctx->getDetectGPS() ? "1" : "0") +
+                  "\",\"model\":\"" + (ctx->isGPSModel() ? "1" : "0") +
+                  "\",\"sensorStatus\":\"" + (ctx->getHasSensor() ? "1" : "0") +
                   "\",\"gitCommit\":\"" + String(GIT_COMMIT) + "\"}";
     request->send(200, "text/json", json);
   });
@@ -64,8 +63,7 @@ static void apis(void) {
   // 获取目标出生点
   server.on("/spawn", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    ctx->deviceState = State::SERVER_SPAWN;
-    Location location = ctx->targetLoc;
+    Location location = ctx->getTargetLoc();
     request->send(200, "text/json",
                   "{\"latitude\":\"" + String(location.latitude, 6) +
                       "\",\"longitude\":\"" + String(location.longitude, 6) +
@@ -82,6 +80,7 @@ static void apis(void) {
       location.latitude = latitude;
       location.longitude = longitude;
       if (gps::isValidGPSLocation(location)) {
+        ctx->setTargetLoc(location);
         preference::saveHomeLocation(location);
         request->send(200);
         return;
@@ -94,10 +93,9 @@ static void apis(void) {
   server.on("/pointColors", HTTP_POST, [](AsyncWebServerRequest *request) {
     clientConnected = true;
     ESP_LOGE(TAG, "pointColors!!!!!!!");
-    PointerColor pointColor = ctx->color;
+    PointerColor pointColor = ctx->getColor();
     if (request->hasParam("southColor")) {
       String color = request->getParam("southColor")->value();
-      ctx->deviceState = State::SERVER_COLORS;
       char *endptr;
       int hexRgb = strtol(color.c_str() + 1, &endptr, 16);
       // 检查解析是否成功
@@ -112,7 +110,6 @@ static void apis(void) {
     }
     if (request->hasParam("spawnColor")) {
       String color = request->getParam("spawnColor")->value();
-      ctx->deviceState = State::SERVER_COLORS;
       char *endptr;
       int hexRgb = strtol(color.c_str() + 1, &endptr, 16);
       // 检查解析是否成功
@@ -125,6 +122,7 @@ static void apis(void) {
     } else {
       ESP_LOGE(TAG, "not found spawnColor");
     }
+    ctx->setColor(pointColor);
     preference::savePointerColor(pointColor);
     request->send(200);
   });
@@ -132,7 +130,7 @@ static void apis(void) {
   // 获取指针颜色
   server.on("/pointColors", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    PointerColor pointColor = ctx->color;
+    PointerColor pointColor = ctx->getColor();
     std::string spawnColor = utils::toHexString(pointColor.spawnColor);
     std::string southColor = utils::toHexString(pointColor.southColor);
     request->send(200, "text/json",
@@ -144,8 +142,7 @@ static void apis(void) {
   // 获取亮度
   server.on("/brightness", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    ctx->deviceState = State::SERVER_SPAWN;
-    uint8_t brightness = ctx->brightness;
+    uint8_t brightness = ctx->getBrightness();
     String response = "{\"brightness\":" + String(brightness) + "}";
     request->send(200, "text/json", response);
   });
@@ -166,7 +163,7 @@ static void apis(void) {
         uint8_t brightness = static_cast<uint8_t>(brightnessInt);
 
         // 更新设备状态和亮度
-        ctx->deviceState = State::SERVER_COLORS;
+        ctx->setBrightness(brightness);
         preference::setBrightness(brightness);
         ESP_LOGI(TAG, "set brightness to %d", brightness);
         pixel::setBrightness(brightness);
@@ -188,19 +185,23 @@ static void apis(void) {
     clientConnected = true;
     if (request->hasParam("azimuth")) {
       float azimuth = request->getParam("azimuth")->value().toFloat();
-      ctx->deviceState = State::GAME_COMPASS;
-      pixel::showByAzimuth(azimuth);
-      request->send(200);
+      auto eventLoop = ctx->getEventLoop();
+      Event::Body event;
+      event.type = Event::Type::AZIMUTH;
+      event.source = Event::Source::WEB_SERVER;
+      event.azimuth.angle = azimuth;
+      esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event, sizeof(event), 0);
+      return request->send(200);
     }
+    request->send(400);
   });
 
   // 获取WiFi配置
   server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    ctx->deviceState = State::SERVER_WIFI;
     request->send(200, "text/json",
-                  "{\"ssid\":\"" + ctx->ssid + "\",\"password\":\"" +
-                      ctx->password + "\"}");
+                  "{\"ssid\":\"" + ctx->getSsid() + "\",\"password\":\"" +
+                      ctx->getPassword() + "\"}");
   });
 
   // 设置WiFi配置
@@ -209,10 +210,13 @@ static void apis(void) {
     if (request->hasParam("ssid") && request->hasParam("password")) {
       String ssid = request->getParam("ssid")->value();
       String password = request->getParam("password")->value();
+      ctx->setSsid(ssid);
+      ctx->setPassword(password);
       preference::setWiFiCredentials(ssid, password);
       // 重启后配置生效
-      request->send(200);
+      return request->send(200);
     }
+    request->send(400);
   });
 
   // 设置高级配置
@@ -223,11 +227,13 @@ static void apis(void) {
       ServerMode mode =
           (serverMode == "1") ? ServerMode::BLE : ServerMode::WIFI;
       preference::setServerMode(mode);
+      ctx->setServerMode(mode);
     }
     if (request->hasParam("model")) {
       String model = request->getParam("model")->value();
       Model compassModel = model == "0" ? Model::LITE : Model::GPS;
       preference::setCustomDeviceModel(compassModel);
+      ctx->setModel(compassModel);
     }
     // 重启后配置生效
     request->send(200);
@@ -235,9 +241,8 @@ static void apis(void) {
 
   // 获取高级配置
   server.on("/advancedConfig", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Model model = ctx->model;
-    String modelStr = model == Model::LITE ? "0" : "1";
-    ServerMode serverMode = ctx->serverMode;
+    String modelStr = ctx->isGPSModel() ? "1" : "0";
+    ServerMode serverMode = ctx->getServerMode();
     String serverModeStr = serverMode == ServerMode::BLE ? "1" : "0";
     request->send(200, "text/json",
                   "{\"model\":\"" + modelStr + "\",\"serverMode\":\"" +
@@ -261,7 +266,6 @@ static void apis(void) {
     clientConnected = true;
     if (request->hasParam("color")) {
       String color = request->getParam("color")->value();
-      ctx->deviceState = State::SERVER_COLORS;
       char *endptr;
       int hexRgb = strtol(color.c_str() + 1, &endptr, 16);
       // 检查解析是否成功
@@ -282,7 +286,6 @@ static void apis(void) {
       if (index < 0 || index > MAX_FRAME_INDEX) {
         request->send(400, "text/plain", "index parameter invalid");
       }
-      ctx->deviceState = State::SERVER_INDEX;
       int hexRgb = DEFAULT_POINTER_COLOR;
       if (request->getParam("color") != nullptr) {
         String color = request->getParam("color")->value();
@@ -362,7 +365,6 @@ void web_server::init(Context *context) {
   LittleFS.begin(false, "/littlefs", 32);
   // 没有WiFi配置无条件开启热点
   if (ssid.length() == 0) {
-    ctx->deviceState = State::HOTSPOT;
     ESP_LOGI(TAG, "No WiFi credentials found");
     startHotspot();
     launchServer("index.html");
@@ -372,7 +374,6 @@ void web_server::init(Context *context) {
   WiFi.mode(WIFI_STA);
   WiFi.setAutoConnect(false);
   WiFi.begin(ssid, password);
-  ctx->deviceState = State::CONNECT_WIFI;
   unsigned long begin = millis();
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -380,7 +381,7 @@ void web_server::init(Context *context) {
       break;
     }
   }
-  ctx->deviceState = State::COMPASS;
+  ctx->setDeviceState(State::COMPASS);
   // 仍然未能连接到WiFi, 开启本地热点showFrameByAzimuth
   // 此时热点名称 Your Compass
   if (WiFi.status() != WL_CONNECTED) {

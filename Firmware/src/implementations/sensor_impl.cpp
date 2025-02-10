@@ -15,7 +15,7 @@ void sensor::init(mcompass::Context *context) {
   ESP_LOGW(TAG, "Chip ID =%x", chipID);
   if (chipID == 0xff) {
     compassAvailable = true;
-    context->hasSensor = true;
+    context->setHasSensor(true);
   }
 }
 
