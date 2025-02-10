@@ -64,7 +64,7 @@ class Context {
   Context(const Context&) = delete;
   Context& operator=(const Context&) = delete;
 
-  Model setModel(Model model) { this->model = model; }
+  void setModel(Model model) { this->model = model; }
 
   Model getModel() const { return model; }
 

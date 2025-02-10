@@ -260,11 +260,7 @@ namespace ble_server {
  */
 void init(mcompass::Context *context);
 /**
- * @brief 蓝牙task
- */
-void bleTask(void *pvParameters);
-/**
  * @brief 关闭蓝牙
  */
-void disable();
+void deinit(mcompass::Context *context);
 }  // namespace ble_server

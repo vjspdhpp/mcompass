@@ -26,7 +26,7 @@ void gps::init(mcompass::Context *context) {
   // 启动GPS,用于GPS存在性检测
   digitalWrite(GPS_EN_PIN, LOW);
   // 创建GPS串口数据读取Timer
-
+  // TODO 或许可以参考NMEA Parser Example优化此处
   esp_timer_handle_t gps_timer;
   esp_timer_create_args_t timer_args = {
       .callback =

@@ -11,7 +11,6 @@ static const char *TAG = "Bluetooth";
 static bool clientConnected = false;
 // 服务工作状态
 static bool serverEnable = false;
-static size_t tick = 0;
 
 using namespace mcompass;
 
@@ -204,6 +203,27 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   }
 } chrCallbacks;
 
+static void event_dispatcher(void *handler_arg, esp_event_base_t base,
+                             int32_t id, void *event_data) {
+  Event::Body *evt = (Event::Body *)event_data;
+  switch (evt->type) {
+    case Event::Type::AZIMUTH:
+      if (pServer->getConnectedCount()) {
+        NimBLEService *pSvc =
+            pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
+        if (pSvc) {
+          NimBLECharacteristic *pChr = pSvc->getCharacteristic(
+              NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
+          pChr->setValue(sensor::getAzimuth());
+          if (pChr) {
+            pChr->notify();
+          }
+        }
+      }
+      break;
+  }
+}
+
 void ble_server::init(Context *context) {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
@@ -288,47 +308,34 @@ void ble_server::init(Context *context) {
   pAdvertising->setName("Lenovo");
   pAdvertising->addServiceUUID(baseService->getUUID());
   pAdvertising->addServiceUUID(advancedService->getUUID());
-  xTaskCreate(ble_server::bleTask, "bleTask", 4096, NULL, 2, &gloopTaskHandle);
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
   serverEnable = true;
-  Serial.printf("sssAdvertising Started\n");
+  Serial.printf("Advertising Started\n");
+  esp_event_handler_register_with(context->getEventLoop(), MCOMPASS_EVENT, 0,
+                                  event_dispatcher, NULL);
+  // 定时器, 用于关闭蓝牙
+  esp_timer_handle_t deinitTimer;
+  esp_timer_create_args_t timerConfig = {
+      .callback =
+          [](void *) { ble_server::deinit(&mcompass::Context::getInstance()); },
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "ble_deinit_timer",
+      .skip_unhandled_events = true};
+
+  esp_timer_create(&timerConfig, &deinitTimer);
+  esp_timer_start_once(deinitTimer, DEFAULT_SERVER_TICK_COUNT *
+                                        1000000);  // Convert to microseconds
 }
 
-void ble_server::bleTask(void *pvParameters) {
-  while (1) {
-    // 蓝牙自己的循环, 用于定时更新电子罗盘角度值.
-    // 1.5s一次.
-    delay(1500);
-    if (pServer->getConnectedCount()) {
-      NimBLEService *pSvc =
-          pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
-      if (pSvc) {
-        NimBLECharacteristic *pChr =
-            pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
-        pChr->setValue(sensor::getAzimuth());
-        if (pChr) {
-          pChr->notify();
-        }
-      }
-    }
-  }
-}
-
-void ble_server::disable() {
-  tick++;
-  if (tick < DEFAULT_SERVER_TICK_COUNT) {
-    return;
-  }
+void ble_server::deinit(mcompass::Context *context) {
   if (!serverEnable || clientConnected) {
     return;
   }
-  ESP_LOGW(TAG, "disable");
-  if (gloopTaskHandle != NULL) {
-    ESP_LOGW(TAG, "Delete BLE Loop Task");
-    vTaskDelete(gloopTaskHandle);
-    gloopTaskHandle = NULL;
-  }
+  ESP_LOGW(TAG, "deinit");
+  esp_event_handler_unregister_with(context->getEventLoop(), MCOMPASS_EVENT, 0,
+                                    event_dispatcher);
   NimBLEDevice::deinit(false);
   esp_bt_controller_disable();
   serverEnable = false;
