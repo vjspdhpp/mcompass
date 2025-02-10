@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Button } from "@nextui-org/button";
-import { Input } from "@nextui-org/input";
-import { Popover, PopoverTrigger, PopoverContent } from "@nextui-org/popover";
-import { Progress } from "@nextui-org/progress";
+import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
+import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
+import { Progress } from "@heroui/progress";
 
 export default function SpawnPanel() {
     const [latitude, setLatitude] = useState('');

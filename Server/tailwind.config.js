@@ -1,13 +1,11 @@
 const { heroui } = require("@heroui/theme");
-import { nextui } from "@nextui-org/theme";
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}",
-    "./node_modules/@heroui/theme/dist/components/(modal|select|slider|form|listbox|divider|popover|button|ripple|spinner|scroll-shadow).js",
+    "./node_modules/@heroui/theme/dist/components/(autocomplete|button|card|code|input|link|listbox|modal|navbar|popover|progress|radio|select|slider|toggle|tabs|ripple|spinner|form|divider|scroll-shadow).js",
   ],
   theme: {
     extend: {
@@ -18,5 +16,5 @@ module.exports = {
     },
   },
   darkMode: "class",
-  plugins: [nextui(), heroui()],
+  plugins: [heroui()],
 };

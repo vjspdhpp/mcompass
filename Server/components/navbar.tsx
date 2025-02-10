@@ -7,13 +7,13 @@ import {
   NavbarBrand,
   NavbarItem,
   NavbarMenuItem,
-} from "@nextui-org/navbar";
+} from "@heroui/navbar";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, useDisclosure } from "@heroui/modal";
 
-import { Button } from "@nextui-org/button";
-import { Link } from "@nextui-org/link";
-import { Input } from "@nextui-org/input";
-import { link as linkStyles } from "@nextui-org/theme";
+import { Button } from "@heroui/button";
+import { Link } from "@heroui/link";
+import { Input } from "@heroui/input";
+import { link as linkStyles } from "@heroui/theme";
 import NextLink from "next/link";
 import clsx from "clsx";
 
@@ -25,9 +25,10 @@ import {
   SearchIcon,
   Logo,
 } from "@/components/icons";
-import { Switch } from "@nextui-org/switch";
+import { Switch } from "@heroui/switch";
 import { cn } from "@heroui/theme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Radio, RadioGroup } from "@heroui/radio";
 
 export const Navbar = () => {
   const searchInput = (
@@ -50,27 +51,31 @@ export const Navbar = () => {
   );
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  const [isSelected, setIsSelected] = useState(false);
+  const [isBleServerMode, setIsBleServerMode] = useState(false);
+
+  const [selectedModel, setSelectedModel] = useState<string>("gps");
+
 
   // 当 Switch 状态变化时触发
   const handleSwitchChange = (value: boolean | ((prevState: boolean) => boolean)) => {
-    setIsSelected(value);
+    setIsBleServerMode(value);
     console.log("Switch 当前状态:", value);
   };
 
-  // 一般而言， 能够看到网页，说明配置肯定未启动，这里暂时不做获取，默认未开启实验特性
-  // useEffect(() => {
-  //   fetch("/adveancedConfig")
-  //     .then(response => response.json())
-  //     .then(data => {
-  //       setIsSelected(data.useBle);
-  //     });
-  // }, [])
+  useEffect(() => {
+    fetch("/adveancedConfig")
+      .then(response => response.json())
+      .then(data => {
+        setIsBleServerMode(data.serverMode == "1");
+        setSelectedModel(data.model == "0" ? "lite" : "gps");
+      });
+  }, [])
 
   // 保存实验特性配置
   function saveAdvancedConfig() {
     const params = new URLSearchParams({
-      enableBLE: isSelected ? "1" : "0",
+      serverMode: isBleServerMode ? "1" : "0",
+      model: selectedModel == "lite" ? "0" : "1",
     });
 
     fetch(`/adveancedConfig?${params.toString()}`, {
@@ -144,7 +149,7 @@ export const Navbar = () => {
                       谨慎启用以下选项，重启后生效
                     </p>
                     <Switch
-                      isSelected={isSelected} // 绑定状态
+                      isSelected={isBleServerMode} // 绑定状态
                       onValueChange={handleSwitchChange} // 状态变化时的回调
                       classNames={{
                         base: cn(
@@ -171,13 +176,16 @@ export const Navbar = () => {
                         </p>
                       </div>
                     </Switch>
-
+                    <RadioGroup label="修改设备类型" orientation="horizontal" value={selectedModel} onValueChange={setSelectedModel}>
+                      <Radio value="lite">标准版</Radio>
+                      <Radio value="gps">GPS版</Radio>
+                    </RadioGroup>
                   </ModalBody>
                   <ModalFooter>
                     <Button color="danger" variant="light" onPress={onClose}>
                       关闭
                     </Button>
-                    <Button color="primary" onPress={()=>{
+                    <Button color="primary" onPress={() => {
                       saveAdvancedConfig();
                       onClose();
                     }}>

@@ -1,4 +1,4 @@
-import { Button } from "@nextui-org/button";
+import { Button } from "@heroui/button";
 import { useEffect, useState } from "react";
 import { Slider } from "@heroui/slider";
 

@@ -1,4 +1,3 @@
-import { title, subtitle } from "@/components/primitives";
 import Preference from "./preference";
 
 export default function Home() {
