@@ -91,3 +91,6 @@
 #define WIFI_PWD_KEY "PWD"             // WiFi账号
 #define BRIGHTNESS_KEY "brightness"    // 亮度
 #define MODEL_KEY "model_key"          // 型号
+
+///////////////////// 错误信息 ///////////////////////
+#define FILE_SYSTEM_ERROR "File System Error 101"  // 文件系统错误

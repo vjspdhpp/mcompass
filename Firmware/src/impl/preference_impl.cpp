@@ -1,10 +1,10 @@
 #include <Preferences.h>
 
-#include "func.h"
+#include "board.h"
 #include "macro_def.h"
+using namespace mcompass;
 
 static const char *TAG = "Preference";
-using namespace mcompass;
 static Context *ctx;
 
 void preference::init(Context *context) {
@@ -13,7 +13,7 @@ void preference::init(Context *context) {
   ServerMode tempServerMode;
   PointerColor tempPointerColor;
   uint8_t tempBrightness;
-  Location tempHomeLocation;
+  Location tempSpawnLocation;
   String tempSsid;
   String tempPassword;
   Model tempDeviceModel;
@@ -21,20 +21,20 @@ void preference::init(Context *context) {
   preference::getServerMode(tempServerMode);
   preference::getPointerColor(tempPointerColor);
   preference::getBrightness(tempBrightness);
-  preference::getHomeLocation(tempHomeLocation);
+  preference::getSpawnLocation(tempSpawnLocation);
   preference::getWiFiCredentials(tempSsid, tempPassword);
   preference::getCustomDeviceModel(tempDeviceModel);
 
   ctx->setServerMode(tempServerMode);
   ctx->setColor(tempPointerColor);
   ctx->setBrightness(tempBrightness);
-  ctx->setTargetLoc(tempHomeLocation);
+  ctx->setSpawnLocation(tempSpawnLocation);
   ctx->setSsid(tempSsid);
   ctx->setPassword(tempPassword);
   ctx->setModel(tempDeviceModel);
 }
 
-void preference::saveHomeLocation(Location location) {
+void preference::saveSpawnLocation(Location location) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putFloat(LATITUDE_KEY, location.latitude);
@@ -42,7 +42,7 @@ void preference::saveHomeLocation(Location location) {
   preferences.end();
 }
 
-void preference::getHomeLocation(Location &location) {
+void preference::getSpawnLocation(Location &location) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(LATITUDE_KEY) || !preferences.isKey(LONGTITUDE_KEY)) {
@@ -150,21 +150,21 @@ void preference::factoryReset() {
   preferences.end();
 }
 
-void preference::setCustomDeviceModel(mcompass::Model model) {
+void preference::setCustomDeviceModel(Model model) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   preferences.putInt(MODEL_KEY, static_cast<int>(model));
   preferences.end();
 }
 
-void preference::getCustomDeviceModel(mcompass::Model &model) {
+void preference::getCustomDeviceModel(Model &model) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(MODEL_KEY)) {
     preferences.end();
     return;
   }
-  model = static_cast<mcompass::Model>(
+  model = static_cast<Model>(
       preferences.getInt(MODEL_KEY, DEFAULT_MODEL));
   preferences.end();
 }

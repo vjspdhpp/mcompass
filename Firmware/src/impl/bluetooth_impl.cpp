@@ -1,6 +1,6 @@
 #include <NimBLEDevice.h>
 
-#include "func.h"
+#include "board.h"
 #include "macro_def.h"
 #include "utils.h"
 
@@ -101,7 +101,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
             .latitude = latitude,
             .longitude = longitude,
         };
-        preference::saveHomeLocation(location);
+        preference::saveSpawnLocation(location);
       }
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(COLOR_CHARACTERISITC_UUID))) {
@@ -253,7 +253,7 @@ void ble_server::init(Context *context) {
       NimBLEUUID(SPAWN_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   Location location;
-  preference::getHomeLocation(location);
+  preference::getSpawnLocation(location);
   char locationBuffer[24] = {0};
   sprintf(locationBuffer, "%.6f,%.6f", location.latitude, location.longitude);
   spawnChar->setValue(locationBuffer);
@@ -318,7 +318,7 @@ void ble_server::init(Context *context) {
   esp_timer_handle_t deinitTimer;
   esp_timer_create_args_t timerConfig = {
       .callback =
-          [](void *) { ble_server::deinit(&mcompass::Context::getInstance()); },
+          [](void *) { ble_server::deinit(&Context::getInstance()); },
       .arg = nullptr,
       .dispatch_method = ESP_TIMER_TASK,
       .name = "ble_deinit_timer",
@@ -329,7 +329,7 @@ void ble_server::init(Context *context) {
                                         1000000);  // Convert to microseconds
 }
 
-void ble_server::deinit(mcompass::Context *context) {
+void ble_server::deinit(Context *context) {
   if (!serverEnable || clientConnected) {
     return;
   }

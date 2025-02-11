@@ -2,17 +2,23 @@
 #include <QMC5883LCompass.h>
 #include <math.h>
 
-#include "func.h"
+#include "board.h"
 
+using namespace mcompass;
 static const char *TAG = "Compass";
 QMC5883LCompass qmc5883;
 
 static bool compassAvailable = false;
 
-void sensor::init(mcompass::Context *context) {
+void sensor::init(Context *context) {
+#ifdef CONFIG_IDF_TARGET_ESP32C3
   qmc5883.init();
   uint8_t chipID = qmc5883.chipID();
   ESP_LOGW(TAG, "Chip ID =%x", chipID);
+#elif CONFIG_IDF_TARGET_ESP32S3
+  uint8_t chipID = 0xff;
+  ESP_LOGW(TAG, "Skip compass init on ESP32S3");
+#endif
   if (chipID == 0xff) {
     compassAvailable = true;
     context->setHasSensor(true);
@@ -42,11 +48,14 @@ void sensor::calibrateCompass() {
 
 int sensor::getAzimuth() {
   if (!compassAvailable) return 0;
-  qmc5883.read();
+#ifdef CONFIG_IDF_TARGET_ESP32C3
   int azimuth = qmc5883.getAzimuth();
   if (azimuth < 0) {
     azimuth += 360;
   }
+#elif CONFIG_IDF_TARGET_ESP32S3
+  int azimuth = random(0, 360);
+#endif
   return azimuth;
 }
 

@@ -95,11 +95,11 @@ class Context {
   PointerColor getColor() const { return color; }
   void setColor(PointerColor c) { color = c; }
 
-  Location getCurrentLoc() const { return currentLoc; }
-  void setCurrentLoc(const Location& loc) { currentLoc = loc; }
+  Location getCurrentLocation() const { return currentLoc; }
+  void setCurrentLocation(const Location& loc) { currentLoc = loc; }
 
-  Location getTargetLoc() const { return targetLoc; }
-  void setTargetLoc(const Location& loc) { targetLoc = loc; }
+  Location getSpawnLocation() const { return spawnLocation; }
+  void setSpawnLocation(const Location& loc) { spawnLocation = loc; }
 
   ServerMode getServerMode() const { return serverMode; }
   void setServerMode(ServerMode mode) { serverMode = mode; }
@@ -127,6 +127,8 @@ class Context {
 
   esp_event_loop_handle_t getEventLoop() { return eventLoop; }
 
+  void setEventLoop(esp_event_loop_handle_t loop) { eventLoop = loop; }
+
  private:
   // 私有构造函数，确保外部不能直接创建对象
   Context() = default;
@@ -145,7 +147,7 @@ class Context {
   PointerColor color;   // 默认构造，具体初值请根据需求设置
   Location currentLoc;  // 当前位置，初值默认构造
   // 默认目标位置设置为天安门经纬度（示例值）
-  Location targetLoc{39.908692f, 116.397477f};
+  Location spawnLocation{39.908692f, 116.397477f};
   ServerMode serverMode = DEFAULT_SERVER_MODE;
   uint8_t brightness = DEFAULT_BRIGHTNESS;
   String ssid = "";

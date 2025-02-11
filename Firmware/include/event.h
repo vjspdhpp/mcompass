@@ -32,7 +32,7 @@ struct Body {
       float angle;
     } azimuth;
     struct {  //  Marquee 类型的数据
-      char text[64];
+      const char *text;
     } marquee;
   };
 };

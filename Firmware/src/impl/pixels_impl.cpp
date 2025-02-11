@@ -2,7 +2,7 @@
 
 #include "compass_frames.h"
 #include "font.h"
-#include "func.h"
+#include "board.h"
 #include "utils.h"
 using namespace mcompass;
 
@@ -270,7 +270,7 @@ void pixel::pixelTask(void *pvParameters) {
   //     }
   //     // 罗盘模式
   //     case STATE_COMPASS: {
-  //       float azimuth = mcompass::getAzimuth();
+  //       float azimuth = getAzimuth();
   //       // 指向地点
   //       if (context->workType == CompassType::LocationCompass) {
   //         pixel::setPointerColor(context->color.spawnColor);
@@ -299,7 +299,7 @@ void pixel::pixelTask(void *pvParameters) {
 
   //     case STATE_CALIBRATE: {
   //       // 什么都不做，调用地方会自己处理的
-  //       // mcompass::calibrateCompass();
+  //       // calibrateCompass();
   //       break;
   //     }
   //     case STATE_CONNECT_WIFI:

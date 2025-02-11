@@ -1,14 +1,17 @@
 #include <Arduino.h>
 #include <TinyGPSPlus.h>
 
-#include "func.h"
+#include "board.h"
 #include "utils.h"
+
+using namespace mcompass;
+
 static HardwareSerial GPSSerial(0);
 static TinyGPSPlus tinygps;
 
 static const char *TAG = "GPS";
 // GPS休眠配置表
-static const mcompass::SleepConfig sleepConfigs[] = {
+static const SleepConfig sleepConfigs[] = {
     {10.0f, 0, true},          // 在10KM距离内，不休眠
     {50.0f, 5 * 60, false},    // 超过50KM，休眠5分钟
     {100.0f, 10 * 60, false},  // 超过100KM，休眠10分钟
@@ -18,7 +21,7 @@ static const mcompass::SleepConfig sleepConfigs[] = {
 // GPS休眠时间
 static uint32_t gpsSleepInterval = 60 * 60;  // 单位:秒
 
-void gps::init(mcompass::Context *context) {
+void gps::init(Context *context) {
   // 配置GPS串口
   GPSSerial.begin(9600, SERIAL_8N1, RX, TX);
   // 设置串口缓冲区大小
@@ -35,7 +38,7 @@ void gps::init(mcompass::Context *context) {
               char t = GPSSerial.read();
               if (tinygps.encode(t)) {
                 // 有串口数据, 说明可能接了GPS
-                auto context = static_cast<mcompass::Context *>(arg);
+                auto context = static_cast<Context *>(arg);
                 context->setDetectGPS(true);
                 // 有效的GPS编码数据
                 if (!tinygps.location.isValid()) {
@@ -43,16 +46,16 @@ void gps::init(mcompass::Context *context) {
                 }
                 ESP_LOGD(TAG, "Location:  %f, %f", tinygps.location.lat(),
                          tinygps.location.lng());
-                mcompass::Location lastestLocation;
+                Location lastestLocation;
                 lastestLocation.latitude =
                     static_cast<float>(tinygps.location.lat());
                 lastestLocation.longitude =
                     static_cast<float>(tinygps.location.lng());
                 // 坐标有效情况下更新本地坐标
-                context->setCurrentLoc(lastestLocation);
+                context->setCurrentLocation(lastestLocation);
                 // 计算两地距离
-                auto currentLoc = context->getCurrentLoc();
-                auto targetLoc = context->getTargetLoc();
+                auto currentLoc = context->getCurrentLocation();
+                auto targetLoc = context->getSpawnLocation();
                 double distance = utils::complexDistance(
                     currentLoc.latitude, currentLoc.longitude,
                     targetLoc.latitude, targetLoc.longitude);
@@ -60,7 +63,7 @@ void gps::init(mcompass::Context *context) {
                 // 获取最接近的临界值
                 float threshholdDistance = 0;
                 size_t sleepConfigSize =
-                    sizeof(sleepConfigs) / sizeof(mcompass::SleepConfig);
+                    sizeof(sleepConfigs) / sizeof(SleepConfig);
                 for (int i = sleepConfigSize - 1; i >= 0; i--) {
                   if (distance >= sleepConfigs[i].distanceThreshold) {
                     threshholdDistance = sleepConfigs[i].distanceThreshold;
@@ -116,7 +119,7 @@ void gps::init(mcompass::Context *context) {
  */
 void gps::disable() { digitalWrite(GPS_EN_PIN, HIGH); }
 
-bool gps::isValidGPSLocation(mcompass::Location location) {
+bool gps::isValidGPSLocation(Location location) {
   if (location.latitude >= -90 && location.latitude <= 90 &&
       location.longitude >= -180 && location.longitude <= 180) {
     return true;

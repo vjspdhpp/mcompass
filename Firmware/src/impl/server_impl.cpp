@@ -9,10 +9,7 @@
 #include <esp_event.h>
 #include <esp_wifi.h>
 
-#include "common.h"
-#include "func.h"
-#include "macro_def.h"
-#include "utils.h"
+#include "board.h"
 
 using namespace mcompass;
 
@@ -63,7 +60,7 @@ static void apis(void) {
   // 获取目标出生点
   server.on("/spawn", HTTP_GET, [](AsyncWebServerRequest *request) {
     clientConnected = true;
-    Location location = ctx->getTargetLoc();
+    Location location = ctx->getSpawnLocation();
     request->send(200, "text/json",
                   "{\"latitude\":\"" + String(location.latitude, 6) +
                       "\",\"longitude\":\"" + String(location.longitude, 6) +
@@ -80,8 +77,8 @@ static void apis(void) {
       location.latitude = latitude;
       location.longitude = longitude;
       if (gps::isValidGPSLocation(location)) {
-        ctx->setTargetLoc(location);
-        preference::saveHomeLocation(location);
+        ctx->setSpawnLocation(location);
+        preference::saveSpawnLocation(location);
         request->send(200);
         return;
       }
@@ -190,7 +187,9 @@ static void apis(void) {
       event.type = Event::Type::AZIMUTH;
       event.source = Event::Source::WEB_SERVER;
       event.azimuth.angle = azimuth;
-      esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event, sizeof(event), 0);
+      ESP_LOGI(TAG, "esp_event_post_to %p", eventLoop);
+      ESP_ERROR_CHECK(esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event,
+                                        sizeof(event), 0));
       return request->send(200);
     }
     request->send(400);
@@ -358,11 +357,23 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
 void web_server::init(Context *context) {
   ctx = context;
-  ESP_LOGI(TAG, "Setting up server");
+  ESP_LOGI(TAG, "Setting up server %p", ctx);
   // 获取储存的WiFi配置
   String ssid, password;
   preference::getWiFiCredentials(ssid, password);
-  LittleFS.begin(false, "/littlefs", 32);
+  bool fileSystemMounted = LittleFS.begin(false, "/littlefs", 32);
+  if (!fileSystemMounted) {
+    ESP_LOGE(TAG, "Failed to mount LittleFS");
+    ESP_LOGI(TAG, "esp_event_post_to %p", ctx->getEventLoop());
+    ctx->setDeviceState(State::INFO);
+    Event::Body event;
+    event.type = Event::Type::MARQUEE;
+    event.source = Event::Source::WEB_SERVER;
+    event.marquee.text = FILE_SYSTEM_ERROR;
+    ESP_ERROR_CHECK(esp_event_post_to(ctx->getEventLoop(), MCOMPASS_EVENT, 0,
+                                      &event, sizeof(event), 0));
+    return;
+  }
   // 没有WiFi配置无条件开启热点
   if (ssid.length() == 0) {
     ESP_LOGI(TAG, "No WiFi credentials found");
