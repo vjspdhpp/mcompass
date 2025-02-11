@@ -22,7 +22,25 @@ static bool clientConnected = false;
 // 网页服务工作状态
 static bool serverEnable = false;
 static Context *ctx = nullptr;
-static size_t tick = 0;
+
+static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data) {
+  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
+    wifi_event_ap_staconnected_t *event =
+        (wifi_event_ap_staconnected_t *)event_data;
+    ESP_LOGI(TAG, "station " MACSTR " join, AID=%d", MAC2STR(event->mac),
+             event->aid);
+    clientConnected = true;
+  } else if (event_base == WIFI_EVENT &&
+             event_id == WIFI_EVENT_AP_STADISCONNECTED) {
+    wifi_event_ap_stadisconnected_t *event =
+        (wifi_event_ap_stadisconnected_t *)event_data;
+    ESP_LOGI(TAG, "station " MACSTR " leave, AID=%d", MAC2STR(event->mac),
+             event->aid);
+    // 设备断开连接
+    clientConnected = false;
+  }
+}
 
 static void notFound(AsyncWebServerRequest *request) {
   clientConnected = true;
@@ -309,12 +327,15 @@ void web_server::createAccessPoint(const char *ssid) {
   ESP_LOGI(TAG, "Creating WiFi access point");
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, "12121212");
+  // 注册WiFi时间处理回调
+  ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                             &wifi_event_handler, NULL));
 }
 
 void web_server::endAccessPoint() { WiFi.softAPdisconnect(true); }
 
 static void launchServer(const char *defaultFile) {
-  if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
+  if (!MDNS.begin("esp32")) { // Set the hostname to "esp32.local"
     ESP_LOGE(TAG, "Error setting up MDNS responder!");
     while (1) {
       delay(1000);
@@ -360,6 +381,7 @@ void web_server::init(Context *context) {
   WiFi.setAutoConnect(true);
   WiFi.begin(ssid, password);
   ctx->setDeviceState(State::COMPASS);
+  // 15秒后未连接到WiFi,则开启热点
   esp_timer_handle_t localAccessPointTimer;
   esp_timer_create_args_t localAccessPointTimerArgs = {
       .callback =
@@ -378,13 +400,19 @@ void web_server::init(Context *context) {
       .skip_unhandled_events = true};
   ESP_ERROR_CHECK(
       esp_timer_create(&localAccessPointTimerArgs, &localAccessPointTimer));
-  esp_timer_start_once(
-      localAccessPointTimer,
-      DEFAULT_WIFI_CONNECT_TIME * 1000000);  // 15秒后未连接到WiFi,则开启热点
+  esp_timer_start_once(localAccessPointTimer,
+                       DEFAULT_WIFI_CONNECT_TIME * 1000000);
+  // 则开启热点15秒后没有设备连接, 则关闭热点.
   esp_timer_handle_t wifiDisableTimer;
   esp_timer_create_args_t wifiDisableTimerArgs = {
       .callback =
           [](void *arg) {
+            // 如果有设备产生连接,则不会结束热点或者断开WiFi连接
+            if (clientConnected) {
+              ESP_LOGI(TAG, "Has client connected, skip disbale AP");
+              return;
+            }
+            ESP_LOGI(TAG, "No client connected, disbale AP");
             endServer();
             if (WiFi.getMode() == WIFI_AP) {
               endAccessPoint();
@@ -399,12 +427,12 @@ void web_server::init(Context *context) {
   ESP_ERROR_CHECK(esp_timer_create(&wifiDisableTimerArgs, &wifiDisableTimer));
   esp_timer_start_once(
       wifiDisableTimer,
-      (DEFAULT_WIFI_CONNECT_TIME + 90) *
-          1000000);  // 网页服务启动90秒后, 无人使用则关闭WiFi模块
+      (DEFAULT_WIFI_CONNECT_TIME + 30) *
+          1000000); // 网页服务启动30秒后, 无人使用则关闭WiFi模块
 }
 
 void web_server::endServer() {
-  if (!serverEnable || clientConnected) {
+  if (!serverEnable) {
     return;
   }
   ESP_LOGW(TAG, "endWebServer");

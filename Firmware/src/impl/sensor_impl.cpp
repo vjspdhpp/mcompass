@@ -36,7 +36,8 @@ void sensor::init(Context *context) {
 }
 
 void sensor::calibrateCompass() {
-  if (!compassAvailable) return;
+  if (!compassAvailable)
+    return;
   qmc5883.calibrate();
   ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
            qmc5883.getCalibrationOffset(0), qmc5883.getCalibrationOffset(1),
@@ -57,7 +58,10 @@ void sensor::calibrateCompass() {
  */
 
 int sensor::getAzimuth() {
-  if (!compassAvailable) return 0;
+  if (!compassAvailable) {
+    return 0;
+  }
+  qmc5883.read();
 #ifdef CONFIG_IDF_TARGET_ESP32C3
   int azimuth = qmc5883.getAzimuth();
   if (azimuth < 0) {
@@ -66,6 +70,7 @@ int sensor::getAzimuth() {
 #elif CONFIG_IDF_TARGET_ESP32S3
   int azimuth = random(0, 360);
 #endif
+  // ESP_LOGE(TAG, "azimuth = %d", azimuth);
   return azimuth;
 }
 

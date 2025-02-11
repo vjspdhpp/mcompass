@@ -29,7 +29,7 @@ struct Body {
   Source source;  // 消息源头
   union {
     struct {  // Azimuth 类型的数据
-      float angle;
+      int angle;
     } azimuth;
     struct {  //  TEXT 类型的数据
       const char* text;
