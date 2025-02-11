@@ -17,20 +17,13 @@ void init(Context *context);
 void endServer();
 
 /**
- * @brief 是否可以关闭网页服务
- */
-bool shouldStop();
-
-/**
  * @brief 开启热点
  */
-void startHotspot(const char *ssid = "The Lost Compass");
+void createAccessPoint(const char *ssid = "cyy-test");
 
 /**
  * @brief 关闭热点
  */
-void stopHotspot();
+void endAccessPoint();
 }  // namespace web_server
-
-
 }  // namespace mcompass

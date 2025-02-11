@@ -6,7 +6,7 @@
 
 ///////////////////// 引脚定义 ///////////////////////
 #define DATA_PIN 6
-#define CALIBRATE_PIN 9
+#define CALIBRATE_PIN 41
 #define GPS_EN_PIN 0
 
 ///////////////////// 默认值 ///////////////////////
@@ -16,8 +16,8 @@
 // 默认亮度
 #define DEFAULT_BRIGHTNESS 56
 
-// 默认连接连接WiFi等待时间 10秒
-#define DEFAULT_WIFI_CONNECT_TIME 10 * 1000
+// 默认连接连接WiFi等待时间 15秒
+#define DEFAULT_WIFI_CONNECT_TIME 15
 // 默认无client连接关闭web server时间 120个tick, 一个tick对应一秒钟
 #define DEFAULT_SERVER_TICK_COUNT 120
 // 默认检测不到GPS,关闭GPS供电时间
@@ -93,4 +93,5 @@
 #define MODEL_KEY "model_key"          // 型号
 
 ///////////////////// 错误信息 ///////////////////////
+#define SENSOR_ERROR "Sensor Error 100"            // 传感器错误
 #define FILE_SYSTEM_ERROR "File System Error 101"  // 文件系统错误

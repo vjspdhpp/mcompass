@@ -11,17 +11,6 @@ static uint32_t last_time = 0;
 Context &context = Context::getInstance();
 static void setupContext() {
   preference::init(&context);
-  // 输出上下文内容
-  ESP_LOGI(TAG,
-           "Context {\n "
-           "ServerMode:%d\n PointerColor{%x,%x}\n Brightness:%d\n "
-           "SpawnLocation:{latitude:%.2f,longitude:%.2f}\n WiFi:%s\n Model:%d\n"
-           "}",
-           context.getServerMode(), context.getColor().spawnColor,
-           context.getColor().southColor, context.getBrightness(),
-           context.getSpawnLocation().latitude,
-           context.getSpawnLocation().longitude, context.getSsid(),
-           context.getModel());
 }
 
 // 校准检测
@@ -49,11 +38,14 @@ void board::init() {
   button::init(&context);
   // 初始化罗盘传感器
   sensor::init(&context);
+  // 如果传感器初始化失败,则直接返回
+  if (!context.getHasSensor()) {
+    return;
+  }
   // GPS型号才需要初始化GPS
   if (context.isGPSModel()) {
     gps::init(&context);
   }
-
   /////////////////////// 根据服务器模式初始化 ///////////////////////
   context.getServerMode() == ServerMode::BLE ? ble_server::init(&context)
                                              : web_server::init(&context);

@@ -9,7 +9,7 @@ namespace Event {
 // 消息类型
 enum Type {
   AZIMUTH,  // 方位角
-  MARQUEE,  // 跑马灯
+  TEXT,     // 文字
 };
 
 // 消息源
@@ -31,9 +31,9 @@ struct Body {
     struct {  // Azimuth 类型的数据
       float angle;
     } azimuth;
-    struct {  //  Marquee 类型的数据
-      const char *text;
-    } marquee;
+    struct {  //  TEXT 类型的数据
+      const char* text;
+    } TEXT;
   };
 };
 /**

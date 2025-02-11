@@ -22,6 +22,16 @@ void sensor::init(Context *context) {
   if (chipID == 0xff) {
     compassAvailable = true;
     context->setHasSensor(true);
+  } else {
+    ESP_LOGE(TAG, "Sensor init failed");
+    context->setHasSensor(false);
+    context->setDeviceState(State::INFO);
+    Event::Body event;
+    event.type = Event::Type::TEXT;
+    event.source = Event::Source::SENSOR;
+    event.TEXT.text = SENSOR_ERROR;
+    ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
+                                      0, &event, sizeof(event), 0));
   }
 }
 

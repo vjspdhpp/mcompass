@@ -24,8 +24,8 @@ const char* Event::TypeToString(Type type) {
   switch (type) {
     case Type::AZIMUTH:
       return "AZIMUTH";
-    case Type::MARQUEE:
-      return "MARQUEE";
+    case Type::TEXT:
+      return "TEXT";
     default:
       return "Unknown EventType";
   }

@@ -135,8 +135,6 @@ class Context {
   ~Context() = default;
 
   // 内部变量定义
-
-  // 静态常量成员需在 .cpp 文件中定义（或使用 inline 变量，C++17以后）
   Model model;
   State deviceState = State::COMPASS;
   State lastDeviceState = State::STARTING;

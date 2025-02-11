@@ -14,6 +14,7 @@ void button::init(Context* context) {
   // 单击事件
   buttonInstance.attachClick(
       [](void* ctx) {
+        ESP_LOGI(TAG, "Button clicked");
         auto context = static_cast<Context*>(ctx);
         auto deviceState = context->getDeviceState();
         auto workType = context->getWorkType();
@@ -35,6 +36,7 @@ void button::init(Context* context) {
   // 多次点击
   buttonInstance.attachMultiClick(
       [](void* ctx) {
+        ESP_LOGI(TAG, "Button multi clicked");
         auto context = static_cast<Context*>(ctx);
         auto deviceState = context->getDeviceState();
         if (deviceState != State::COMPASS) return;
@@ -52,6 +54,7 @@ void button::init(Context* context) {
   // 长按事件
   buttonInstance.attachLongPressStart(
       [](void* ctx) {
+        ESP_LOGI(TAG, "Button long pressed");
         auto context = static_cast<Context*>(ctx);
         auto deviceState = context->getDeviceState();
         auto workType = context->getWorkType();

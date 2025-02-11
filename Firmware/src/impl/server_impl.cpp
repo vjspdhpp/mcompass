@@ -305,20 +305,13 @@ static void apis(void) {
   });
 }
 
-void web_server::startHotspot(const char *ssid) {
-  ESP_LOGI(TAG, "Starting local hotspot");
+void web_server::createAccessPoint(const char *ssid) {
+  ESP_LOGI(TAG, "Creating WiFi access point");
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid, "");
-  // 注册 Wi-Fi 事件处理函数
-  // ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-  //                                            &wifi_event_handler, NULL));
-  // ESP_LOGI(TAG, "Local hotspot started");
+  WiFi.softAP(ssid, "12121212");
 }
 
-void web_server::stopHotspot() {
-  WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_OFF);
-}
+void web_server::endAccessPoint() { WiFi.softAPdisconnect(true); }
 
 static void launchServer(const char *defaultFile) {
   if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
@@ -335,92 +328,86 @@ static void launchServer(const char *defaultFile) {
   ESP_LOGI(TAG, "Server launched");
 }
 
-static void wifi_event_handler(void *arg, esp_event_base_t event_base,
-                               int32_t event_id, void *event_data) {
-  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
-    wifi_event_ap_staconnected_t *event =
-        (wifi_event_ap_staconnected_t *)event_data;
-    ESP_LOGI(TAG, "station " MACSTR " join, AID=%d", MAC2STR(event->mac),
-             event->aid);
-    clientConnected = true;
-  } else if (event_base == WIFI_EVENT &&
-             event_id == WIFI_EVENT_AP_STADISCONNECTED) {
-    wifi_event_ap_stadisconnected_t *event =
-        (wifi_event_ap_stadisconnected_t *)event_data;
-    ESP_LOGI(TAG, "station " MACSTR " leave, AID=%d", MAC2STR(event->mac),
-             event->aid);
-    // 设备断开连接,重置tick
-    clientConnected = false;
-    tick = 0;
-  }
-}
-
 void web_server::init(Context *context) {
   ctx = context;
   ESP_LOGI(TAG, "Setting up server %p", ctx);
-  // 获取储存的WiFi配置
   String ssid, password;
   preference::getWiFiCredentials(ssid, password);
   bool fileSystemMounted = LittleFS.begin(false, "/littlefs", 32);
+  // 文件系统挂载失败
   if (!fileSystemMounted) {
     ESP_LOGE(TAG, "Failed to mount LittleFS");
     ESP_LOGI(TAG, "esp_event_post_to %p", ctx->getEventLoop());
-    ctx->setDeviceState(State::INFO);
-    Event::Body event;
-    event.type = Event::Type::MARQUEE;
-    event.source = Event::Source::WEB_SERVER;
-    event.marquee.text = FILE_SYSTEM_ERROR;
-    ESP_ERROR_CHECK(esp_event_post_to(ctx->getEventLoop(), MCOMPASS_EVENT, 0,
-                                      &event, sizeof(event), 0));
+    // 理论上说挂载失败也不影响基础指南功能使用,所以这里不发送事件
+    // ctx->setDeviceState(State::INFO);
+    // Event::Body event;
+    // event.type = Event::Type::TEXT;
+    // event.source = Event::Source::WEB_SERVER;
+    // event.TEXT.text = FILE_SYSTEM_ERROR;
+    // ESP_ERROR_CHECK(esp_event_post_to(ctx->getEventLoop(), MCOMPASS_EVENT, 0,
+    //                                   &event, sizeof(event), 0));
     return;
   }
   // 没有WiFi配置无条件开启热点
   if (ssid.length() == 0) {
     ESP_LOGI(TAG, "No WiFi credentials found");
-    startHotspot();
+    createAccessPoint();
     launchServer("index.html");
     return;
   }
   ESP_LOGI(TAG, "Connecting to %s\n", ssid);
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoConnect(false);
+  WiFi.setAutoConnect(true);
   WiFi.begin(ssid, password);
-  unsigned long begin = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    if (millis() - begin > DEFAULT_WIFI_CONNECT_TIME) {
-      break;
-    }
-  }
   ctx->setDeviceState(State::COMPASS);
-  // 仍然未能连接到WiFi, 开启本地热点showFrameByAzimuth
-  // 此时热点名称 Your Compass
-  if (WiFi.status() != WL_CONNECTED) {
-    startHotspot("Your Compass");
-  }
-
-  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString());
-  launchServer("index.html");
-  MDNS.addService("http", "tcp", 80);
-  serverEnable = true;
-}
-
-bool web_server::shouldStop() {
-  return !clientConnected && WiFi.status() != WL_CONNECTED;
+  esp_timer_handle_t localAccessPointTimer;
+  esp_timer_create_args_t localAccessPointTimerArgs = {
+      .callback =
+          [](void *arg) {
+            if (WiFi.status() != WL_CONNECTED) {
+              createAccessPoint();
+            }
+            ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString());
+            launchServer("index.html");
+            MDNS.addService("http", "tcp", 80);
+            serverEnable = true;
+          },
+      .arg = ctx,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "localAccessPointTimer",
+      .skip_unhandled_events = true};
+  ESP_ERROR_CHECK(
+      esp_timer_create(&localAccessPointTimerArgs, &localAccessPointTimer));
+  esp_timer_start_once(
+      localAccessPointTimer,
+      DEFAULT_WIFI_CONNECT_TIME * 1000000);  // 15秒后未连接到WiFi,则开启热点
+  esp_timer_handle_t wifiDisableTimer;
+  esp_timer_create_args_t wifiDisableTimerArgs = {
+      .callback =
+          [](void *arg) {
+            endServer();
+            if (WiFi.getMode() == WIFI_AP) {
+              endAccessPoint();
+            }
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_OFF);
+          },
+      .arg = ctx,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "wifiDisableTimer",
+      .skip_unhandled_events = true};
+  ESP_ERROR_CHECK(esp_timer_create(&wifiDisableTimerArgs, &wifiDisableTimer));
+  esp_timer_start_once(
+      wifiDisableTimer,
+      (DEFAULT_WIFI_CONNECT_TIME + 90) *
+          1000000);  // 网页服务启动90秒后, 无人使用则关闭WiFi模块
 }
 
 void web_server::endServer() {
-  tick++;
-  // 超过指定tick检测是否需要关闭
-  if (tick < DEFAULT_SERVER_TICK_COUNT) {
-    return;
-  }
-  if (!serverEnable || !web_server::shouldStop()) {
+  if (!serverEnable || clientConnected) {
     return;
   }
   ESP_LOGW(TAG, "endWebServer");
   server.end();
   serverEnable = false;
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
 }
