@@ -6,7 +6,14 @@
 
 ///////////////////// 引脚定义 ///////////////////////
 #define DATA_PIN 6
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define CALIBRATE_PIN 7
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
 #define CALIBRATE_PIN 41
+#else
+#error "Unsupported target"
+#endif
+
 #define GPS_EN_PIN 0
 
 ///////////////////// 默认值 ///////////////////////
@@ -18,16 +25,16 @@
 
 // 默认连接连接WiFi等待时间 15秒
 #define DEFAULT_WIFI_CONNECT_TIME 15
-// 默认无client连接关闭web server时间 120个tick, 一个tick对应一秒钟
-#define DEFAULT_SERVER_TICK_COUNT 120
+// 默认无client连接关闭web server时间
+#define DEFAULT_SERVER_TIMEOUT 30
 // 默认检测不到GPS,关闭GPS供电时间
-#define DEFAULT_GPS_DETECT_TIMEOUT 60 * 1000
+#define DEFAULT_GPS_DETECT_TIMEOUT 60
 
 // 默认初始的坐标值
 #define DEFAULT_INVALID_LOCATION_VALUE 255.0f
 
 // 默认服务器模式
-#define DEFAULT_SERVER_MODE mcompass::ServerMode::WIFI
+#define DEFAULT_SERVER_MODE mcompass::ServerMode::BLE
 
 // 默认型号
 #ifndef DEFAULT_MODEL

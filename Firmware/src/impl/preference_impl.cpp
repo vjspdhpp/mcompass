@@ -98,8 +98,8 @@ void preference::getServerMode(ServerMode &serverMode) {
     serverMode = DEFAULT_SERVER_MODE;
     return;
   }
-  serverMode = static_cast<ServerMode>(
-      preferences.getInt(SERVER_MODE_KEY, DEFAULT_SERVER_MODE));
+  serverMode = static_cast<ServerMode>(preferences.getInt(
+      SERVER_MODE_KEY, static_cast<int>(DEFAULT_SERVER_MODE)));
   preferences.end();
 }
 
@@ -165,6 +165,6 @@ void preference::getCustomDeviceModel(Model &model) {
     return;
   }
   model = static_cast<Model>(
-      preferences.getInt(MODEL_KEY, DEFAULT_MODEL));
+      preferences.getInt(MODEL_KEY, static_cast<int>(DEFAULT_MODEL)));
   preferences.end();
 }

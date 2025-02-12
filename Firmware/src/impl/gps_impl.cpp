@@ -112,6 +112,27 @@ void gps::init(Context *context) {
   ESP_ERROR_CHECK(esp_timer_create(&timer_args, &gps_timer));
   ESP_ERROR_CHECK(esp_timer_start_periodic(
       gps_timer, 1000000));  // 1 second in microseconds
+  // 检测不到GPS, 关闭GPS的Timer
+  esp_timer_handle_t gpsDisableTimer;
+  esp_timer_create_args_t gpsDisableTimerArgs = {
+      .callback =
+          [](void *arg) {
+            auto context = static_cast<Context *>(arg);
+            if (context->getDetectGPS()) {
+              ESP_LOGI(TAG, "GPS detected, skip disable");
+              return;
+            }
+            ESP_LOGI(TAG, "No GPS detected, disable gps power");
+            gps::disable();
+          },
+      .arg = context,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "gpsDisableTimer",
+      .skip_unhandled_events = true};
+  ESP_ERROR_CHECK(esp_timer_create(&gpsDisableTimerArgs, &gpsDisableTimer));
+  esp_timer_start_once(
+      gpsDisableTimer,
+      DEFAULT_GPS_DETECT_TIMEOUT * 1000000);  // 检测不到GPS, 关闭GPS的Timer
 }
 
 /**

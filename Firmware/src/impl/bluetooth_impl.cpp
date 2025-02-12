@@ -203,12 +203,17 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   }
 } chrCallbacks;
 
-static void event_dispatcher(void *handler_arg, esp_event_base_t base,
-                             int32_t id, void *event_data) {
+static void ble_azimuth_dispatcher(void *handler_arg, esp_event_base_t base,
+                                   int32_t id, void *event_data) {
+  static uint32_t last_update = 0;
+  if (millis() - last_update < 1000) return;
+  last_update = millis();
   Event::Body *evt = (Event::Body *)event_data;
   switch (evt->type) {
-    case Event::Type::AZIMUTH:
-      if (pServer->getConnectedCount()) {
+    case Event::Type::AZIMUTH: {
+      if (pServer->getConnectedCount() > 0) {
+        // 校验刷新频率, 限制帧率1Hz
+        ESP_LOGI(TAG, "Notify Azimuth: %d", evt->azimuth.angle);
         NimBLEService *pSvc =
             pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
         if (pSvc) {
@@ -220,7 +225,7 @@ static void event_dispatcher(void *handler_arg, esp_event_base_t base,
           }
         }
       }
-      break;
+    } break;
   }
 }
 
@@ -313,20 +318,26 @@ void ble_server::init(Context *context) {
   serverEnable = true;
   Serial.printf("Advertising Started\n");
   esp_event_handler_register_with(context->getEventLoop(), MCOMPASS_EVENT, 0,
-                                  event_dispatcher, NULL);
+                                  ble_azimuth_dispatcher, NULL);
   // 定时器, 用于关闭蓝牙
   esp_timer_handle_t deinitTimer;
   esp_timer_create_args_t timerConfig = {
       .callback =
-          [](void *) { ble_server::deinit(&Context::getInstance()); },
+          [](void *) {
+            if (pServer->getConnectedCount() == 0) {
+              ESP_LOGI(TAG, "Client connected, deinit");
+              ble_server::deinit(&Context::getInstance());
+            } else {
+              ESP_LOGI(TAG, "No client connected, skip deinit");
+            }
+          },
       .arg = nullptr,
       .dispatch_method = ESP_TIMER_TASK,
       .name = "ble_deinit_timer",
       .skip_unhandled_events = true};
 
   esp_timer_create(&timerConfig, &deinitTimer);
-  esp_timer_start_once(deinitTimer, DEFAULT_SERVER_TICK_COUNT *
-                                        1000000);  // Convert to microseconds
+  esp_timer_start_once(deinitTimer, DEFAULT_SERVER_TIMEOUT * 1000000);
 }
 
 void ble_server::deinit(Context *context) {
@@ -335,7 +346,7 @@ void ble_server::deinit(Context *context) {
   }
   ESP_LOGW(TAG, "deinit");
   esp_event_handler_unregister_with(context->getEventLoop(), MCOMPASS_EVENT, 0,
-                                    event_dispatcher);
+                                    ble_azimuth_dispatcher);
   NimBLEDevice::deinit(false);
   esp_bt_controller_disable();
   serverEnable = false;

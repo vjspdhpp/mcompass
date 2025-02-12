@@ -1,8 +1,8 @@
 #include <FastLED.h>
 
+#include "board.h"
 #include "compass_frames.h"
 #include "font.h"
-#include "board.h"
 #include "utils.h"
 using namespace mcompass;
 
@@ -353,6 +353,7 @@ void pixel::setPointerColor(uint32_t pointColor) { pColor = pointColor; }
 void pixel::counterDown(int seconds) {
   for (int i = seconds; i > 0; i--) {
     FastLED.clear();
+    ESP_LOGI(TAG, "counterDown: %d", i);
     drawChar('0' + i, 0, 0, CRGB::Red);
     FastLED.show();
     delay(1000);

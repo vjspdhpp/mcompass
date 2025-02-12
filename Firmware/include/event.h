@@ -7,9 +7,12 @@ ESP_EVENT_DECLARE_BASE(MCOMPASS_EVENT);
 namespace Event {
 
 // 消息类型
-enum Type {
-  AZIMUTH,  // 方位角
-  TEXT,     // 文字
+enum class Type {
+  AZIMUTH,            // 方位角
+  TEXT,               // 文字
+  BUTTON_CLICK,       // 单击
+  BUTTON_LONG_PRESS,  // 长按
+  BUTTON_MULTI_CLICK  // 多次点击
 };
 
 // 消息源
@@ -28,11 +31,11 @@ struct Body {
   Type type;      // 消息类型
   Source source;  // 消息源头
   union {
-    struct {  // Azimuth 类型的数据
+    struct {  // 方位角
       int angle;
     } azimuth;
-    struct {  //  TEXT 类型的数据
-      const char* text;
+    struct {  // 文字
+      char text[64];
     } TEXT;
   };
 };

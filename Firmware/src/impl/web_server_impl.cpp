@@ -327,19 +327,22 @@ void web_server::createAccessPoint(const char *ssid) {
   ESP_LOGI(TAG, "Creating WiFi access point");
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, "12121212");
-  // 注册WiFi时间处理回调
+  // 注册WiFi事件处理回调
   ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                              &wifi_event_handler, NULL));
 }
 
-void web_server::endAccessPoint() { WiFi.softAPdisconnect(true); }
+void web_server::endAccessPoint() {
+  // 注销WiFi事件处理回调
+  ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                               &wifi_event_handler));
+  WiFi.softAPdisconnect(true);
+}
 
 static void launchServer(const char *defaultFile) {
-  if (!MDNS.begin("esp32")) { // Set the hostname to "esp32.local"
+  if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
     ESP_LOGE(TAG, "Error setting up MDNS responder!");
-    while (1) {
-      delay(1000);
-    }
+    return;
   }
   ESP_LOGI(TAG, "Launching server");
   apis();
@@ -358,13 +361,13 @@ void web_server::init(Context *context) {
   // 文件系统挂载失败
   if (!fileSystemMounted) {
     ESP_LOGE(TAG, "Failed to mount LittleFS");
-    ESP_LOGI(TAG, "esp_event_post_to %p", ctx->getEventLoop());
+    // ESP_LOGI(TAG, "esp_event_post_to %p", ctx->getEventLoop());
     // 理论上说挂载失败也不影响基础指南功能使用,所以这里不发送事件
     // ctx->setDeviceState(State::INFO);
     // Event::Body event;
     // event.type = Event::Type::TEXT;
     // event.source = Event::Source::WEB_SERVER;
-    // event.TEXT.text = FILE_SYSTEM_ERROR;
+    // memcpy(event.TEXT.text, FILE_SYSTEM_ERROR, sizeof(FILE_SYSTEM_ERROR));
     // ESP_ERROR_CHECK(esp_event_post_to(ctx->getEventLoop(), MCOMPASS_EVENT, 0,
     //                                   &event, sizeof(event), 0));
     return;
@@ -407,6 +410,7 @@ void web_server::init(Context *context) {
   esp_timer_create_args_t wifiDisableTimerArgs = {
       .callback =
           [](void *arg) {
+            auto context = static_cast<Context *>(arg);
             // 如果有设备产生连接,则不会结束热点或者断开WiFi连接
             if (clientConnected) {
               ESP_LOGI(TAG, "Has client connected, skip disbale AP");
@@ -417,6 +421,7 @@ void web_server::init(Context *context) {
             if (WiFi.getMode() == WIFI_AP) {
               endAccessPoint();
             }
+
             WiFi.disconnect(true);
             WiFi.mode(WIFI_OFF);
           },
@@ -427,8 +432,8 @@ void web_server::init(Context *context) {
   ESP_ERROR_CHECK(esp_timer_create(&wifiDisableTimerArgs, &wifiDisableTimer));
   esp_timer_start_once(
       wifiDisableTimer,
-      (DEFAULT_WIFI_CONNECT_TIME + 30) *
-          1000000); // 网页服务启动30秒后, 无人使用则关闭WiFi模块
+      (DEFAULT_WIFI_CONNECT_TIME + DEFAULT_SERVER_TIMEOUT) *
+          1000000);  // 网页服务启动30秒后, 无人使用则关闭WiFi模块
 }
 
 void web_server::endServer() {

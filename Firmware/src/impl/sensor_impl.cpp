@@ -29,15 +29,14 @@ void sensor::init(Context *context) {
     Event::Body event;
     event.type = Event::Type::TEXT;
     event.source = Event::Source::SENSOR;
-    event.TEXT.text = SENSOR_ERROR;
+    memcpy(event.TEXT.text, SENSOR_ERROR, sizeof(SENSOR_ERROR));
     ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
                                       0, &event, sizeof(event), 0));
   }
 }
 
 void sensor::calibrateCompass() {
-  if (!compassAvailable)
-    return;
+  if (!compassAvailable) return;
   qmc5883.calibrate();
   ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
            qmc5883.getCalibrationOffset(0), qmc5883.getCalibrationOffset(1),
@@ -58,19 +57,20 @@ void sensor::calibrateCompass() {
  */
 
 int sensor::getAzimuth() {
-  if (!compassAvailable) {
+  if (!sensor::isCompassAvailable()) {
     return 0;
   }
-  qmc5883.read();
 #ifdef CONFIG_IDF_TARGET_ESP32C3
+  qmc5883.read();
   int azimuth = qmc5883.getAzimuth();
   if (azimuth < 0) {
     azimuth += 360;
   }
 #elif CONFIG_IDF_TARGET_ESP32S3
-  int azimuth = random(0, 360);
+  static int azimuth = 0;
+  azimuth++;
+  azimuth %= 360;
 #endif
-  // ESP_LOGE(TAG, "azimuth = %d", azimuth);
   return azimuth;
 }
 

@@ -6,13 +6,13 @@
 namespace mcompass {
 
 /// 罗盘型号
-enum Model {
+enum class Model {
   LITE = 0,  // 标准版， 无GPS的版本
   GPS = 1,   // GPS版本
 };
 
 /// @brief 罗盘状态
-enum State {
+enum class State {
   STARTING = -1,  // 启动中
   CALIBRATE = 0,  // 校准
   COMPASS = 2,    // 可以指示方位的工作状态
@@ -21,7 +21,7 @@ enum State {
 };
 
 /// @brief 罗盘工作模式
-enum WorkType {
+enum class WorkType {
   SPAWN,  // 出生指针
   SOUTH,  // 指南针
 };
@@ -46,7 +46,7 @@ struct PointerColor {
 };
 
 /// @brief 服务器模式
-enum ServerMode {
+enum class ServerMode {
   WIFI = 0,  // 网页服务器
   BLE = 1,   // 蓝牙服务器
 };
