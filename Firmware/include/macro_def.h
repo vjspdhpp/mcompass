@@ -7,7 +7,7 @@
 ///////////////////// 引脚定义 ///////////////////////
 #define DATA_PIN 6
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-#define CALIBRATE_PIN 7
+#define CALIBRATE_PIN 9
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
 #define CALIBRATE_PIN 41
 #else

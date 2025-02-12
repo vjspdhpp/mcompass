@@ -351,10 +351,10 @@ void pixel::setBrightness(uint8_t brightness) {
 void pixel::setPointerColor(uint32_t pointColor) { pColor = pointColor; }
 
 void pixel::counterDown(int seconds) {
-  for (int i = seconds; i > 0; i--) {
+  for (int i = seconds; i >= 0; i--) {
     FastLED.clear();
     ESP_LOGI(TAG, "counterDown: %d", i);
-    drawChar('0' + i, 0, 0, CRGB::Red);
+    drawChar('0' + i, 4, 0, CRGB::Red);
     FastLED.show();
     delay(1000);
   }

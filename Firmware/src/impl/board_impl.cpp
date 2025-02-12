@@ -106,8 +106,8 @@ void board::init() {
             // 根据索引计算方位角（均匀分布）
             int azimuth = (currentIndex * 360) / MAX_FRAME_INDEX;
 
-            ESP_LOGI(TAG, "NETHER currentIndex=%d, targetIndex=%d, azimuth=%d",
-                     currentIndex, targetIndex, azimuth);
+            // ESP_LOGI(TAG, "NETHER currentIndex=%d, targetIndex=%d, azimuth=%d",
+            //          currentIndex, targetIndex, azimuth);
 
             // 发送方位角事件
             Event::Body event;
