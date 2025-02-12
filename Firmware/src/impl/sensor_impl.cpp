@@ -35,7 +35,7 @@ void sensor::init(Context *context) {
   }
 }
 
-void sensor::calibrateCompass() {
+void sensor::calibrate() {
   if (!compassAvailable) return;
   qmc5883.calibrate();
   ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
@@ -57,7 +57,7 @@ void sensor::calibrateCompass() {
  */
 
 int sensor::getAzimuth() {
-  if (!sensor::isCompassAvailable()) {
+  if (!sensor::available()) {
     return 0;
   }
 #ifdef CONFIG_IDF_TARGET_ESP32C3
@@ -74,4 +74,4 @@ int sensor::getAzimuth() {
   return azimuth;
 }
 
-bool sensor::isCompassAvailable() { return compassAvailable; }
+bool sensor::available() { return compassAvailable; }

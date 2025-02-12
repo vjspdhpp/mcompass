@@ -9,9 +9,7 @@ using namespace mcompass;
 static const char *TAG = "BOARD";
 static uint32_t last_time = 0;
 Context &context = Context::getInstance();
-static void setupContext() {
-  preference::init(&context);
-}
+static void setupContext() { preference::init(&context); }
 
 // 校准检测
 void calibrateCheck() {
@@ -79,5 +77,51 @@ void board::init() {
       .name = "sensor_timer",
       .skip_unhandled_events = true};
   esp_timer_create(&sensor_timer_args, &sensor_timer);
-  esp_timer_start_periodic(sensor_timer, 20000);
+  esp_timer_start_periodic(sensor_timer, 33333);  // 33.33ms
+  /////////////////////// 创建Nether数据源定时器 ///////////////////////
+  esp_timer_handle_t nether_timer;
+  esp_timer_create_args_t nether_timer_args = {
+      .callback =
+          [](void *) {
+            static int targetIndex =
+                random(0, MAX_FRAME_INDEX);  // 随机目标索引
+            static int currentIndex = 0;     // 当前索引
+            const int step = 1;              // 每次移动步长
+
+            // 逼近目标索引
+            if (currentIndex != targetIndex) {
+              if (currentIndex < targetIndex) {
+                currentIndex += step;
+              } else {
+                currentIndex -= step;
+              }
+            } else {
+              // 到达目标后生成新随机索引
+              targetIndex = random(0, MAX_FRAME_INDEX);
+            }
+
+            // 处理索引越界
+            currentIndex = (currentIndex + MAX_FRAME_INDEX) % MAX_FRAME_INDEX;
+
+            // 根据索引计算方位角（均匀分布）
+            int azimuth = (currentIndex * 360) / MAX_FRAME_INDEX;
+
+            ESP_LOGI(TAG, "NETHER currentIndex=%d, targetIndex=%d, azimuth=%d",
+                     currentIndex, targetIndex, azimuth);
+
+            // 发送方位角事件
+            Event::Body event;
+            event.type = Event::Type::AZIMUTH;
+            event.source = Event::Source::NETHER;
+            event.azimuth.angle = azimuth;
+            ESP_ERROR_CHECK(esp_event_post_to(context.getEventLoop(),
+                                              MCOMPASS_EVENT, 0, &event,
+                                              sizeof(event), 0));
+          },
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "nether_timer",
+      .skip_unhandled_events = true};
+  esp_timer_create(&nether_timer_args, &nether_timer);
+  esp_timer_start_periodic(nether_timer, 50000);  // 50ms
 }

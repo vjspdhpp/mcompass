@@ -7,7 +7,7 @@ namespace sensor {
 /**
  * @brief 校准罗盘
  */
-void calibrateCompass();
+void calibrate();
 
 /**
  * @brief 获取当前方位角
@@ -17,7 +17,7 @@ int getAzimuth();
 /**
  * @brief comass可用
  */
-bool isCompassAvailable();
+bool available();
 
 /**
  * @brief QMC5883初始化

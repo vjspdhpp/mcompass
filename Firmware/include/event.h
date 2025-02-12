@@ -8,11 +8,12 @@ namespace Event {
 
 // 消息类型
 enum class Type {
-  AZIMUTH,            // 方位角
-  TEXT,               // 文字
-  BUTTON_CLICK,       // 单击
-  BUTTON_LONG_PRESS,  // 长按
-  BUTTON_MULTI_CLICK  // 多次点击
+  AZIMUTH,             // 方位角
+  TEXT,                // 文字
+  BUTTON_CLICK,        // 单击
+  BUTTON_LONG_PRESS,   // 长按
+  BUTTON_MULTI_CLICK,  // 多次点击
+  SENSOR_CALIBRATE,    // 传感器校准
 };
 
 // 消息源

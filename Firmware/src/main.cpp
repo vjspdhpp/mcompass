@@ -69,7 +69,6 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     } break;
     case Event::Type::BUTTON_MULTI_CLICK: {
       ESP_LOGI(TAG, "BUTTON_MULTI_CLICK");
-      ESP_LOGI(TAG, "xTaskCreate");
       // 启动异步倒计时任务
       xTaskCreate(
           [](void *ctx) {
@@ -109,6 +108,10 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     case Event::Type::TEXT: {  // 状态校验, 非INFO状态,忽略TEXT
       if (context.getDeviceState() != State::INFO) return;
       ESP_LOGW(TAG, "TEXT %s", evt->TEXT.text);
+    } break;
+    case Event::Type::SENSOR_CALIBRATE: {
+      ESP_LOGI(TAG, "SENSOR_CALIBRATE");
+      sensor::calibrate();
     } break;
     default:
       break;
@@ -151,4 +154,6 @@ void setup() {
   ESP_LOGW(TAG, "Board initialized");
 }
 
-void loop() { delay(200); }
+void loop() {
+  vTaskDelay(pdMS_TO_TICKS(200));
+}
