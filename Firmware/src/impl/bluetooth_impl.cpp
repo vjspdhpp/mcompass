@@ -325,10 +325,17 @@ void ble_server::init(Context *context) {
       .callback =
           [](void *) {
             if (pServer->getConnectedCount() == 0) {
-              ESP_LOGI(TAG, "Client connected, deinit");
-              ble_server::deinit(&Context::getInstance());
+              ESP_LOGI(TAG, "No client connected, deinit");
+              Context &context = Context::getInstance();
+              // 如果型号是GPS, 没有设置过目标地址, 也不会关闭蓝牙
+              if (context.isGPSModel() &&
+                  !gps::isValidGPSLocation(context.getSpawnLocation())) {
+                ESP_LOGI(TAG, "Spawn Location is not set, skip deinit");
+                return;
+              }
+              ble_server::deinit(&context);
             } else {
-              ESP_LOGI(TAG, "No client connected, skip deinit");
+              ESP_LOGI(TAG, "Client connected, skip deinit");
             }
           },
       .arg = nullptr,

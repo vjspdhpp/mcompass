@@ -416,6 +416,12 @@ void web_server::init(Context *context) {
               ESP_LOGI(TAG, "Has client connected, skip disbale AP");
               return;
             }
+            // 如果型号是GPS, 没有设置过目标地址, 也不会关闭热点
+            if (context->isGPSModel() &&
+                !gps::isValidGPSLocation(context->getSpawnLocation())) {
+              ESP_LOGI(TAG, "Spawn Location is not set, skip disbale AP");
+              return;
+            }
             ESP_LOGI(TAG, "No client connected, disbale AP");
             endServer();
             if (WiFi.getMode() == WIFI_AP) {

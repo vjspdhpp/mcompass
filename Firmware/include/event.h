@@ -14,6 +14,7 @@ enum class Type {
   BUTTON_LONG_PRESS,   // 长按
   BUTTON_MULTI_CLICK,  // 多次点击
   SENSOR_CALIBRATE,    // 传感器校准
+  FACTORY_RESET,       // 恢复出厂设置
 };
 
 // 消息源
