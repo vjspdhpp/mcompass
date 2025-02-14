@@ -16,7 +16,16 @@ Front|Bottom
 ### 不会编译
 仓库已添加Github Actions, 可以直接点击[Actions](https://github.com/chaosgoo/mcompass/actions)找到最近一次的"Build Firmware Workflow"构建成功的记录,
 
-点击后的页面下方有个类似于"mcompass-639b762"的文件, 下载后解压文件得到**mcompass.bin**文件使用**Flash Download Tool**选择ESP32C3->USB下载固件.
+点击后的页面下方有四个文件, 按需下载一个即可, 除了默认配置不同外, 其余没有区别;
+均可通过网页/蓝牙切换.
+名称|描述
+-|-
+mcompass-639b762-LITE-BLE.bin |标准版, 蓝牙服务器模式
+mcompass-639b762-GPS-BLE.bin | GPS版, 蓝牙服务器模式
+mcompass-639b762-LITE-WIFI.bin | 标准版, WiFi模式
+mcompass-639b762-GPS-WIFI.bin | GPS版, WiFi模式
+
+下载后解压文件得到**mcompass.bin**文件使用**Flash Download Tool**选择ESP32C3->USB下载固件.
 
 固件已将`bootload.bin, partitions.bin, firmware.bin, littlefs.bin`合并, 直接烧录到地址0x0即可, 其余参数保持默认, SPI SPEED:40Mhz;SPI MODE:DIO
 
@@ -31,26 +40,21 @@ PlatformIO的安装方式请自行搜索;
 执行`npm run build`拷贝生成的`Server/out`文件夹内容到`Firmware/data`文件夹下,使用PlatformIO自带的`Build Filesystem Image`和`Upload Filesystem Image`指令上传服务器文件到设备.
 
 ## 功能说明
-* 首次插上电脑启动会创建一个`The Lost Compass`的热点, 连接后打开浏览器输入[esp32.local](http://esp32.local), 输入WiFi和密码进行配网,配网完成后装置会重启;
-* 当罗盘插上电脑后开机, 此时会启动后台服务, 使用[esp32.local](http://esp32.local)访问后台;
-* 开机后显示白色指针时按住按钮会进入校准模式(校准时候会观察到指针持续10秒卡住), 请举着罗盘飞来飞去, 尽可能多的让罗盘在各个方向旋转.
-* 在室外开阔环境下才能够有GPS信号, 没有GPS信号指针会乱转的.
-* 在有GPS信号的情况下, 长按按钮可以设置当前地点为新的出生点.
 
-## API
-path | 类型 |描述 | 参数
--|-|-|-
-/ip | GET | 获取当前设备IP | 无
-/restart | HTTP_POST | 重启 | 无
-/setIndex | POST |调试用, 直接显示第N帧, 指针颜色color | index: Int, color: String, eg: #ff5252
-/info | GET |获取设备基本信息 | 无
-/wifi | GET |获取设备保存的WiFi | 无
-/wifi | GET |获取设备保存的WiFi | 无
-/spawn | GET |获取当前出生点 | 无
-/spawn | POST |设置当前出生点 | latitude:Float,longitude:Float
-/setColor | POST |调试用,所有灯珠显示该颜色 | color: String, eg: #ff5252
-/setAzimuth | POST | 设置方位角, Mod用的就是这个接口 | azimuth: Float
-/setWiFi | POST | 设置WiFi | ssid: String, password: String
+### 网页后台模式
+* 首次启动检测出生点配置, 如果没有配置出生点, 则会创建一个名为**The Lost Compass**的热点, 连接该热点后打开浏览器输入[esp32.local](http://esp32.local)进入后台, 如果无法打开网页, 也可以尝试使用ESP32C3热点的默认网关地址[192.168.4.1](http://192.168.4.1),配置完成后重启装置生效;
+    * 如果你在后台配置了WiFi地址, 那么下次启动会尝试连接WiFi, 如果连接失败, 会再次创建热点供你配置;
+    * 不管是热点模式还是连接到WiFi, 快速点按按钮四次,会显示当前设备的IP地址;
+### 按钮
+* 连续快速按下按钮四次
+    * WEB服务器模式下,会显示当前设备的IP地址;
+* 连续快速按下按钮六次, 会进入传感器校准模式, 此时会显示数字倒计时,倒计时结束,拿起罗盘在控制画8字,并尽可能让装置在各个方向上旋转;
+* 连续快速按下按钮八次, 会进入出厂设置, 会清空所有配置, 恢复出厂设置;
+* 长按按钮
+    * 出生针模式下在有GPS信号时, 长按按钮可以设置当前地点为新的出生点;
+    * 指南针模式下, 长按按钮会切换到nether模式,指针会开始乱转;
+
+*注意: 在室外开阔环境下才能够有GPS信号, 没有GPS信号指针会乱转.*
 
 ## 材料说明
 * PCB板厚选择1.0mm, 黑色阻焊, 嘉立创制作;
@@ -73,8 +77,4 @@ path | 类型 |描述 | 参数
 
 
 ## 更新记录
-日期|更新内容
--|-
-2024年12月07日18点29分| 增加基于距离的GPS电源策略, 在足够远的情况下关闭GPS以节约电量
-2024年12月16日20点01分| 修复目标地点配置读取错误
-2024年12月29日21点44分| 增加重启接口;<br>修改网页访问启动策略;<br>主动检测GPS模块是否存在,调整首次启动后工作模式是指向地点还是指向南方;<br>接口处理数据时候增加数据合法性校验
+见[update.md](./Doc/update.md)
