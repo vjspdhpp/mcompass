@@ -3,7 +3,7 @@ name: Build Firmware Workflow
 on:
   push:
     branches:
-      - main
+      - nimble_s3
 
 jobs:
   build:

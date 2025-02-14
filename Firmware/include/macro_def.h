@@ -34,7 +34,9 @@
 #define DEFAULT_INVALID_LOCATION_VALUE 255.0f
 
 // 默认服务器模式
+#ifndef DEFAULT_SERVER_MODE
 #define DEFAULT_SERVER_MODE mcompass::ServerMode::BLE
+#endif
 
 // 默认型号
 #ifndef DEFAULT_MODEL
