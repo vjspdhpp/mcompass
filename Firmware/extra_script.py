@@ -22,9 +22,14 @@ def get_git_info():
     except:
         return "unknown", "unknown"
 
+# 读取环境变量设置型号
+model = env.GetProjectOption("env:DEFAULT_MODEL", "GPS")  # 默认GPS
+model_enum = f"mcompass::Model::{model.upper()}"
+
 branch, commit = get_git_info()
 env.Append(CPPDEFINES=[
     ("GIT_BRANCH", '\\"%s\\"' % branch),
     ("GIT_COMMIT", '\\"%s\\"' % commit),
-    ("BUILD_VERSION", '\\"%s\\"' % firmware_version)
+    ("BUILD_VERSION", '\\"%s\\"' % firmware_version),
+    ("DEFAULT_MODEL", model_enum)  # 覆盖宏定义中的默认型号
 ])
