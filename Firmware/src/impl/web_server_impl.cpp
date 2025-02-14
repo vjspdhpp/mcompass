@@ -200,6 +200,7 @@ static void apis(void) {
     clientConnected = true;
     if (request->hasParam("azimuth")) {
       float azimuth = request->getParam("azimuth")->value().toFloat();
+      ctx->setSubscribeSource(Event::Source::WEB_SERVER);
       auto eventLoop = ctx->getEventLoop();
       Event::Body event;
       event.type = Event::Type::AZIMUTH;
@@ -291,6 +292,7 @@ static void apis(void) {
         return;
       }
       ESP_LOGI(TAG, "setColor to %06X\n", hexRgb);
+      ctx->setSubscribeSource(Event::Source::WEB_SERVER);
       pixel::showSolid(hexRgb);
       request->send(200);
     }
@@ -314,6 +316,7 @@ static void apis(void) {
           hexRgb = DEFAULT_POINTER_COLOR;
         }
       }
+      ctx->setSubscribeSource(Event::Source::WEB_SERVER);
       pixel::setPointerColor(hexRgb);
       pixel::showFrame(index);
       request->send(200, "text/plain", "OK");
