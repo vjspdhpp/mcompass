@@ -49,7 +49,7 @@ jobs:
         id: get_commit_hash
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Upload merged firmware
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mcompass-${{ matrix.model }}-${{ env.COMMIT_HASH }}
           path: mcompass-${{ matrix.model }}.bin
