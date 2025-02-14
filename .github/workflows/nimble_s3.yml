@@ -13,7 +13,7 @@ jobs:
         model: [GPS, LITE]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Run PlatformIO Action
         uses: karniv00l/platformio-run-action@e6467e68a40b381568bad448faf0a1413c72fc7f
