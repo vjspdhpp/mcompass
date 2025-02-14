@@ -1,11 +1,10 @@
 #include <NimBLEDevice.h>
 
 #include "board.h"
+#include "event.h"
 #include "macro_def.h"
 #include "utils.h"
-
 static NimBLEServer *pServer;
-static TaskHandle_t gloopTaskHandle = NULL;
 static const char *TAG = "Bluetooth";
 // 是否有客户端进行连接, 1分钟没有客户端连接关闭Server
 static bool clientConnected = false;
@@ -55,10 +54,10 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
                    NimBLEUUID(INFO_CHARACTERISTIC_UUID))) {
       characteristic = "Info";
     } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID))) {
+                   NimBLEUUID(SERVER_MODE_CHARACTERISTIC_UUID))) {
       characteristic = "Web Server";
     } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID))) {
+                   NimBLEUUID(BRIGHTNESS_CHARACTERISTIC_UUID))) {
       characteristic = "Brightness";
     }
     ESP_LOGI(TAG, "%s onRead, value: %s", characteristic,
@@ -101,16 +100,19 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
             .latitude = latitude,
             .longitude = longitude,
         };
+        Context &context = Context::getInstance();
         preference::saveSpawnLocation(location);
+        context.setSpawnLocation(location);
       }
     } else if (pCharacteristic->getUUID().equals(
                    NimBLEUUID(COLOR_CHARACTERISITC_UUID))) {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Color onWrite, Received data: %s", value.c_str());
       std::vector<std::string> colors = utils::split(value, ",");
+      Context &context = Context::getInstance();
+      PointerColor color;
+      color = context.getColor();
       if (colors.size() == 1) {
-        PointerColor color;
-        preference::getPointerColor(color);
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
         if (endptr == colors[0].c_str() + 1) {
@@ -120,8 +122,6 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       } else if (colors.size() >= 2) {
         char *endptr;
         int southColor = strtol(colors[0].c_str(), &endptr, 16);
-        PointerColor color;
-        preference::getPointerColor(color);
         if (endptr == colors[0].c_str()) {
           ESP_LOGE(TAG, "Failed to parse southColor value");
         } else {
@@ -134,16 +134,17 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
           color.spawnColor = spawnColor;
         }
         preference::savePointerColor(color);
+        context.setColor(color);
       } else {
         ESP_LOGE(TAG, "Failed to parse PointerColor value");
       }
     } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(VIRTUAL_LOCATION_CHARACHTERISTIC_UUID))) {
+                   NimBLEUUID(VIRTUAL_LOCATION_CHARACTERISTIC_UUID))) {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Virtual Location onWrite, Received data: %s",
                value.c_str());
     } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID))) {
+                   NimBLEUUID(VIRTUAL_AZIMUTH_CHARACTERISTIC_UUID))) {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Virtual Azimuth onWrite, Received data: %s",
                value.c_str());
@@ -151,28 +152,53 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
                    NimBLEUUID(REBOOT_CHARACTERISTIC_UUID))) {
       std::string value = pCharacteristic->getValue();
       ESP_LOGI(TAG, "Reboot onWrite, Received data: %s", value.c_str());
-      delay(1000);
-      esp_restart();
+      Context &context = Context::getInstance();
+      Event::Body event;
+      event.type = Event::Type::FACTORY_RESET;
+      event.source = Event::Source::BLE;
+      auto eventLoop = context.getEventLoop();
+      ESP_ERROR_CHECK(esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event,
+                                        sizeof(event), portMAX_DELAY));
     } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID))) {
-      // uint8_t value = pCharacteristic->getValue().data;
-      // ESP_LOGI(TAG, "WebServer onWrite, Received data: %s", value.c_str());
-      // preference::setBrightness(value);
-    } else if (pCharacteristic->getUUID().equals(
-                   NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID))) {
+                   NimBLEUUID(SERVER_MODE_CHARACTERISTIC_UUID))) {
       std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "ServerMode onWrite, Received data: %s", value.c_str());
+      Context &context = Context::getInstance();
+      if (value[0] == 0) {
+        preference::setServerMode(ServerMode::WIFI);
+        context.setServerMode(ServerMode::WIFI);
+      } else if (value[0] == 1) {
+        preference::setServerMode(ServerMode::BLE);
+        context.setServerMode(ServerMode::BLE);
+      }
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(BRIGHTNESS_CHARACTERISTIC_UUID))) {
+      std::string value = pCharacteristic->getValue();
+      // 打印亮度值
       ESP_LOGI(TAG, "Brightness onWrite, Received data: %d", value[0]);
       if (value.length() == 1) {
+        Context &context = Context::getInstance();
         uint8_t brightness = static_cast<uint8_t>(value[0]);
-        // 打印亮度值
         preference::setBrightness(brightness);
+        context.setBrightness(brightness);
         pixel::setBrightness(brightness);
       } else {
         ESP_LOGE(TAG, "Error: Invalid brightness value length");
       }
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(CALIBRATE_CHARACTERISTIC_UUID))) {
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Calibrate onWrite, Received data: %d", value[0]);
+      // 发送校准事件
+      Context &context = Context::getInstance();
+      Event::Body event;
+      event.type = Event::Type::SENSOR_CALIBRATE;
+      event.source = Event::Source::BLE;
+      auto eventLoop = context.getEventLoop();
+      ESP_ERROR_CHECK(esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event,
+                                        sizeof(event), portMAX_DELAY));
     }
   }
-
   /**
    *  The value returned in code is the NimBLE host return code.
    */
@@ -242,7 +268,7 @@ void ble_server::init(Context *context) {
       NimBLEUUID(COLOR_CHARACTERISITC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   PointerColor color;
-  preference::getPointerColor(color);
+  color = context->getColor();
   char colorBuffer[24] = {0};
   sprintf(colorBuffer, "%x,%x", color.spawnColor, color.southColor);
   colorChar->setValue(colorBuffer);
@@ -258,7 +284,7 @@ void ble_server::init(Context *context) {
       NimBLEUUID(SPAWN_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   Location location;
-  preference::getSpawnLocation(location);
+  location = context->getSpawnLocation();
   char locationBuffer[24] = {0};
   sprintf(locationBuffer, "%.6f,%.6f", location.latitude, location.longitude);
   spawnChar->setValue(locationBuffer);
@@ -267,44 +293,62 @@ void ble_server::init(Context *context) {
   NimBLECharacteristic *infoChar = baseService->createCharacteristic(
       NimBLEUUID(INFO_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-  infoChar->setValue(INFO_JSON);
+  String infoJson =
+      "{\"buildDate\":\"" + String(__DATE__) + "\",\"buildTime\":\"" +
+      String(__TIME__) + "\",\"buildVersion\":\"" + String(BUILD_VERSION) +
+      "\",\"gitBranch\":\"" + String(GIT_BRANCH) + "\",\"gpsStatus\":\"" +
+      (context->getDetectGPS() ? "1" : "0") + "\",\"model\":\"" +
+      (context->isGPSModel() ? "1" : "0") + "\",\"sensorStatus\":\"" +
+      (context->getHasSensor() ? "1" : "0") + "\",\"gitCommit\":\"" +
+      String(GIT_COMMIT) + "\"}";
+  infoChar->setValue(infoJson);
   infoChar->setCallbacks(&chrCallbacks);
   // 请求校准
   NimBLECharacteristic *calibrateChar = baseService->createCharacteristic(
       NimBLEUUID(CALIBRATE_CHARACTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
   calibrateChar->setValue(INFO_JSON);
   calibrateChar->setCallbacks(&chrCallbacks);
-
+  // 亮度
+  NimBLECharacteristic *brightnessChar = baseService->createCharacteristic(
+      NimBLEUUID(BRIGHTNESS_CHARACTERISTIC_UUID),
+      NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
+  uint8_t brightness = context->getBrightness();
+  brightnessChar->setValue(brightness);
+  brightnessChar->setCallbacks(&chrCallbacks);
+  // 重启
+  NimBLECharacteristic *rebootChar = baseService->createCharacteristic(
+      NimBLEUUID(REBOOT_CHARACTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
+  rebootChar->setValue(INFO_JSON);
+  rebootChar->setCallbacks(&chrCallbacks);
   // 高级Service
   NimBLEService *advancedService =
       pServer->createService(NimBLEUUID(ADVANCED_SERVICE_UUID));
   // 虚拟方位角
   NimBLECharacteristic *virtualAzimuthChar =
       advancedService->createCharacteristic(
-          NimBLEUUID(VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID),
+          NimBLEUUID(VIRTUAL_AZIMUTH_CHARACTERISTIC_UUID),
           NIMBLE_PROPERTY::WRITE);
   virtualAzimuthChar->setValue(0);
   virtualAzimuthChar->setCallbacks(&chrCallbacks);
   // 虚拟坐标
   NimBLECharacteristic *virtualLocationChar =
       advancedService->createCharacteristic(
-          NimBLEUUID(VIRTUAL_LOCATION_CHARACHTERISTIC_UUID),
+          NimBLEUUID(VIRTUAL_LOCATION_CHARACTERISTIC_UUID),
           NIMBLE_PROPERTY::WRITE);
   virtualLocationChar->setValue(0);
   virtualLocationChar->setCallbacks(&chrCallbacks);
   // 服务器模式
   NimBLECharacteristic *serverModeChar = advancedService->createCharacteristic(
-      NimBLEUUID(WEB_SERVER_CHARACHTERISTIC_UUID), NIMBLE_PROPERTY::WRITE);
-  serverModeChar->setValue(context->getServerMode());
-  serverModeChar->setCallbacks(&chrCallbacks);
-
-  // 亮度
-  NimBLECharacteristic *brightnessChar = advancedService->createCharacteristic(
-      NimBLEUUID(BRIGHTNESS_CHARACHTERISTIC_UUID),
+      NimBLEUUID(SERVER_MODE_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
-  uint8_t brightness = context->getBrightness();
-  brightnessChar->setValue(brightness);
-  brightnessChar->setCallbacks(&chrCallbacks);
+  serverModeChar->setValue(static_cast<uint8_t>(context->getServerMode()));
+  serverModeChar->setCallbacks(&chrCallbacks);
+  // 自定义设备型号
+  NimBLECharacteristic *customModelChar = advancedService->createCharacteristic(
+      NimBLEUUID(CUSTOM_MODEL_CHARACTERISTIC_UUID),
+      NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
+  customModelChar->setValue(static_cast<uint8_t>(context->getModel()));
+  customModelChar->setCallbacks(&chrCallbacks);
 
   baseService->start();
   advancedService->start();

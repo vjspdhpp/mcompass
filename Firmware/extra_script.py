@@ -2,6 +2,8 @@ Import("env")
 
 import subprocess
 
+firmware_version = "1.1.0"
+
 def get_git_info():
     try:
         # Get current branch name
@@ -23,5 +25,6 @@ def get_git_info():
 branch, commit = get_git_info()
 env.Append(CPPDEFINES=[
     ("GIT_BRANCH", '\\"%s\\"' % branch),
-    ("GIT_COMMIT", '\\"%s\\"' % commit)
+    ("GIT_COMMIT", '\\"%s\\"' % commit),
+    ("BUILD_VERSION", '\\"%s\\"' % firmware_version)
 ])

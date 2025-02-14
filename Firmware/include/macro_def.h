@@ -67,24 +67,23 @@
 #define SPAWN_CHARACTERISTIC_UUID \
   (uint16_t)(BASE_SERVICE_UUID + 3)  // 出生点信息
 #define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4)  // 设备信息
-
-/** 设备操作 */
-#define CONTROL_SERVICE_UUID (uint16_t)0xf100
+#define BRIGHTNESS_CHARACTERISTIC_UUID \
+  (uint16_t)(BASE_SERVICE_UUID + 5)  // 亮度控制
 #define CALIBRATE_CHARACTERISTIC_UUID \
-  (uint16_t)(CONTROL_SERVICE_UUID + 1)  // 请求校准
+  (uint16_t)(BASE_SERVICE_UUID + 6)  // 请求校准
 #define REBOOT_CHARACTERISTIC_UUID \
-  (uint16_t)(CONTROL_SERVICE_UUID + 2)  // 重启设备
+  (uint16_t)(BASE_SERVICE_UUID + 7)  // 重启设备
 
 /** 高级配置  */
 #define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
-#define VIRTUAL_LOCATION_CHARACHTERISTIC_UUID \
+#define VIRTUAL_LOCATION_CHARACTERISTIC_UUID \
   (uint16_t)(ADVANCED_SERVICE_UUID + 1)  // 虚拟坐标
-#define VIRTUAL_AZIMUTH_CHARACHTERISTIC_UUID \
+#define VIRTUAL_AZIMUTH_CHARACTERISTIC_UUID \
   (uint16_t)(ADVANCED_SERVICE_UUID + 2)  // 虚拟方位角
-#define WEB_SERVER_CHARACHTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 3)  // 启用服务器API和网页服务
-#define BRIGHTNESS_CHARACHTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 4)  // 亮度控制
+#define SERVER_MODE_CHARACTERISTIC_UUID \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 3)  // 服务器模式
+#define CUSTOM_MODEL_CHARACTERISTIC_UUID \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 4)  // 自定义型号
 
 ///////////////////// 配置相关 ///////////////////////
 #define PREFERENCE_NAME "mcompass"  // 配置文件名称
