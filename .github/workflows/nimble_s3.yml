@@ -1,4 +1,4 @@
-name: Build Firmware Workflow
+name: Build Firmware Workflow on nimble_s3
 
 on:
   push:
