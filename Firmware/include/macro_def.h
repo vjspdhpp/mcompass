@@ -17,9 +17,9 @@
 #define GPS_EN_PIN 0
 
 ///////////////////// 默认值 ///////////////////////
-#define EARTH_RADIUS 6371.0  // 地球半径（单位：公里）
+#define EARTH_RADIUS 6371.0 // 地球半径（单位：公里）
 // 指针颜色
-#define DEFAULT_POINTER_COLOR 0xFF1414  // 指针红
+#define DEFAULT_POINTER_COLOR 0xFF1414 // 指针红
 // 默认亮度
 #define DEFAULT_BRIGHTNESS 56
 
@@ -46,60 +46,59 @@
 ///////////////////// 版本信息 ///////////////////////
 #if !defined(BUILD_VERSION)
 #define BUILD_VERSION "UNKNOWN"
-#endif  // MACRO
+#endif // MACRO
 
 #if !defined(GIT_BRANCH)
 #define GIT_BRANCH "UNKNOWN"
-#endif  // MACRO
+#endif // MACRO
 
 #if !defined(GIT_COMMIT)
 #define GIT_COMMIT "UNKNOWN"
-#endif  // MACRO
+#endif // MACRO
 
-#define INFO_JSON                                                         \
-  "{\"buildDate\":\"" __DATE__ "\",\"buildTime\":\"" __TIME__             \
-  "\",\"buildVersion\":\"" BUILD_VERSION "\",\"gitBranch\":\"" GIT_BRANCH \
+#define INFO_JSON                                                              \
+  "{\"buildDate\":\"" __DATE__ "\",\"buildTime\":\"" __TIME__                  \
+  "\",\"buildVersion\":\"" BUILD_VERSION "\",\"gitBranch\":\"" GIT_BRANCH      \
   "\",\"gitCommit\":\"" GIT_COMMIT "\"}"
 
 ///////////////////// 蓝牙相关 ///////////////////////
 /* 基础配置 */
 #define BASE_SERVICE_UUID (uint16_t)0xf000
 #define COLOR_CHARACTERISITC_UUID (uint16_t)(BASE_SERVICE_UUID + 1)  // 指针颜色
-#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2)  // 方位角
-#define SPAWN_CHARACTERISTIC_UUID \
-  (uint16_t)(BASE_SERVICE_UUID + 3)  // 出生点信息
-#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4)  // 设备信息
-#define BRIGHTNESS_CHARACTERISTIC_UUID \
-  (uint16_t)(BASE_SERVICE_UUID + 5)  // 亮度控制
-#define CALIBRATE_CHARACTERISTIC_UUID \
-  (uint16_t)(BASE_SERVICE_UUID + 6)  // 请求校准
-#define REBOOT_CHARACTERISTIC_UUID \
-  (uint16_t)(BASE_SERVICE_UUID + 7)  // 重启设备
+#define AZIMUTH_CHARACHERSITC_UUID (uint16_t)(BASE_SERVICE_UUID + 2) // 方位角
+#define SPAWN_CHARACTERISTIC_UUID                                              \
+  (uint16_t)(BASE_SERVICE_UUID + 3)                                // 出生点信息
+#define INFO_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 4) // 设备信息
+#define BRIGHTNESS_CHARACTERISTIC_UUID                                         \
+  (uint16_t)(BASE_SERVICE_UUID + 5) // 亮度控制
+#define CALIBRATE_CHARACTERISTIC_UUID                                          \
+  (uint16_t)(BASE_SERVICE_UUID + 6)                                  // 请求校准
+#define REBOOT_CHARACTERISTIC_UUID (uint16_t)(BASE_SERVICE_UUID + 7) // 重启设备
+#define SERVER_MODE_CHARACTERISTIC_UUID                                        \
+  (uint16_t)(BASE_SERVICE_UUID + 8) // 服务器模式
+#define CUSTOM_MODEL_CHARACTERISTIC_UUID                                       \
+  (uint16_t)(BASE_SERVICE_UUID + 9) // 自定义型号
 
 /** 高级配置  */
 #define ADVANCED_SERVICE_UUID (uint16_t)0xfa00
-#define VIRTUAL_LOCATION_CHARACTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 1)  // 虚拟坐标
-#define VIRTUAL_AZIMUTH_CHARACTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 2)  // 虚拟方位角
-#define SERVER_MODE_CHARACTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 3)  // 服务器模式
-#define CUSTOM_MODEL_CHARACTERISTIC_UUID \
-  (uint16_t)(ADVANCED_SERVICE_UUID + 4)  // 自定义型号
+#define VIRTUAL_LOCATION_CHARACTERISTIC_UUID                                   \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 1) // 虚拟坐标
+#define VIRTUAL_AZIMUTH_CHARACTERISTIC_UUID                                    \
+  (uint16_t)(ADVANCED_SERVICE_UUID + 2) // 虚拟方位角
 
 ///////////////////// 配置相关 ///////////////////////
-#define PREFERENCE_NAME "mcompass"  // 配置文件名称
+#define PREFERENCE_NAME "mcompass" // 配置文件名称
 
-#define LATITUDE_KEY "latitude"        // 纬度Key
-#define LONGTITUDE_KEY "longitude"     // 经度Key
-#define SPAWN_COLOR_KEY "spawn_color"  // 出生针颜色
-#define SOUTH_COLOR_KEY "south_color"  // 指南针颜色
-#define SERVER_MODE_KEY "server_mode"  // 配置模式
-#define WIFI_SSID_KEY "SSID"           // WiFi账号
-#define WIFI_PWD_KEY "PWD"             // WiFi账号
-#define BRIGHTNESS_KEY "brightness"    // 亮度
-#define MODEL_KEY "model_key"          // 型号
+#define LATITUDE_KEY "latitude"       // 纬度Key
+#define LONGTITUDE_KEY "longitude"    // 经度Key
+#define SPAWN_COLOR_KEY "spawn_color" // 出生针颜色
+#define SOUTH_COLOR_KEY "south_color" // 指南针颜色
+#define SERVER_MODE_KEY "server_mode" // 配置模式
+#define WIFI_SSID_KEY "SSID"          // WiFi账号
+#define WIFI_PWD_KEY "PWD"            // WiFi账号
+#define BRIGHTNESS_KEY "brightness"   // 亮度
+#define MODEL_KEY "model_key"         // 型号
 
 ///////////////////// 错误信息 ///////////////////////
-#define SENSOR_ERROR "Sensor Error 100"            // 传感器错误
-#define FILE_SYSTEM_ERROR "File System Error 101"  // 文件系统错误
+#define SENSOR_ERROR "Sensor Error 100"           // 传感器错误
+#define FILE_SYSTEM_ERROR "File System Error 101" // 文件系统错误

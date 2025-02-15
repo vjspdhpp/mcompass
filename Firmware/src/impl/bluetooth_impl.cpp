@@ -77,8 +77,8 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       bool parseSuccess = false;
       size_t commaIndex = value.find(',');
       if (commaIndex != std::string::npos) {
-        std::string longitudeStr = value.substr(0, commaIndex);
-        std::string latitudeStr = value.substr(commaIndex + 1);
+        std::string latitudeStr = value.substr(0, commaIndex);
+        std::string longitudeStr = value.substr(commaIndex + 1);
         try {
           longitude = std::stof(longitudeStr);
           latitude = std::stof(latitudeStr);
@@ -232,32 +232,34 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
 static void ble_azimuth_dispatcher(void *handler_arg, esp_event_base_t base,
                                    int32_t id, void *event_data) {
   static uint32_t last_update = 0;
-  if (millis() - last_update < 1000) return;
+  if (millis() - last_update < 1000)
+    return;
   last_update = millis();
   Event::Body *evt = (Event::Body *)event_data;
   switch (evt->type) {
-    case Event::Type::AZIMUTH: {
-      if (pServer->getConnectedCount() > 0) {
-        // 校验刷新频率, 限制帧率1Hz
-        ESP_LOGI(TAG, "Notify Azimuth: %d", evt->azimuth.angle);
-        NimBLEService *pSvc =
-            pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
-        if (pSvc) {
-          NimBLECharacteristic *pChr = pSvc->getCharacteristic(
-              NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
-          pChr->setValue(sensor::getAzimuth());
-          if (pChr) {
-            pChr->notify();
-          }
+  case Event::Type::AZIMUTH: {
+    if (pServer->getConnectedCount() > 0) {
+      // 校验刷新频率, 限制帧率1Hz
+      ESP_LOGI(TAG, "Notify Azimuth: %d", evt->azimuth.angle);
+      NimBLEService *pSvc =
+          pServer->getServiceByUUID(NimBLEUUID(BASE_SERVICE_UUID));
+      if (pSvc) {
+        NimBLECharacteristic *pChr =
+            pSvc->getCharacteristic(NimBLEUUID(AZIMUTH_CHARACHERSITC_UUID), 0);
+        pChr->setValue(sensor::getAzimuth());
+        if (pChr) {
+          pChr->notify();
         }
       }
-    } break;
+    }
+  } break;
   }
 }
 
 void ble_server::init(Context *context) {
   NimBLEDevice::init("NimBLE");
   NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_SC);
+  NimBLEDevice::setMTU(255);
   pServer = NimBLEDevice::createServer();
   pServer->setCallbacks(&serverCallbacks);
   // 基础Service
@@ -359,6 +361,7 @@ void ble_server::init(Context *context) {
   pAdvertising->addServiceUUID(advancedService->getUUID());
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
+  
   serverEnable = true;
   Serial.printf("Advertising Started\n");
   esp_event_handler_register_with(context->getEventLoop(), MCOMPASS_EVENT, 0,
