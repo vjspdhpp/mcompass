@@ -197,6 +197,16 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
       auto eventLoop = context.getEventLoop();
       ESP_ERROR_CHECK(esp_event_post_to(eventLoop, MCOMPASS_EVENT, 0, &event,
                                         sizeof(event), portMAX_DELAY));
+    } else if (pCharacteristic->getUUID().equals(
+                   NimBLEUUID(CUSTOM_MODEL_CHARACTERISTIC_UUID))) {
+      std::string value = pCharacteristic->getValue();
+      ESP_LOGI(TAG, "Custom Model onWrite, Received data: %s", value.c_str());
+      Context &context = Context::getInstance();
+      if (value.length() == 1) {
+        Model model = static_cast<Model>(value[0]);
+        preference::setCustomDeviceModel(model);
+        context.setModel(model);
+      }
     }
   }
   /**
@@ -250,6 +260,17 @@ static void ble_azimuth_dispatcher(void *handler_arg, esp_event_base_t base,
         if (pChr) {
           pChr->notify();
         }
+        Context &context = Context::getInstance();
+        pChr = pSvc->getCharacteristic(NimBLEUUID(INFO_CHARACTERISTIC_UUID), 0);
+        String infoJson =
+            "{\"buildDate\":\"" + String(__DATE__) + "\",\"buildTime\":\"" +
+            String(__TIME__) + "\",\"buildVersion\":\"" +
+            String(BUILD_VERSION) + "\",\"gitBranch\":\"" + String(GIT_BRANCH) +
+            "\",\"gpsStatus\":\"" + (context.getDetectGPS() ? "1" : "0") +
+            "\",\"model\":\"" + (context.isGPSModel() ? "1" : "0") +
+            "\",\"sensorStatus\":\"" + (context.getHasSensor() ? "1" : "0") +
+            "\",\"gitCommit\":\"" + String(GIT_COMMIT) + "\"}";
+        pChr->setValue(infoJson);
       }
     }
   } break;
@@ -340,13 +361,13 @@ void ble_server::init(Context *context) {
   virtualLocationChar->setValue(0);
   virtualLocationChar->setCallbacks(&chrCallbacks);
   // 服务器模式
-  NimBLECharacteristic *serverModeChar = advancedService->createCharacteristic(
+  NimBLECharacteristic *serverModeChar = baseService->createCharacteristic(
       NimBLEUUID(SERVER_MODE_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
   serverModeChar->setValue(static_cast<uint8_t>(context->getServerMode()));
   serverModeChar->setCallbacks(&chrCallbacks);
   // 自定义设备型号
-  NimBLECharacteristic *customModelChar = advancedService->createCharacteristic(
+  NimBLECharacteristic *customModelChar = baseService->createCharacteristic(
       NimBLEUUID(CUSTOM_MODEL_CHARACTERISTIC_UUID),
       NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
   customModelChar->setValue(static_cast<uint8_t>(context->getModel()));
@@ -361,7 +382,7 @@ void ble_server::init(Context *context) {
   pAdvertising->addServiceUUID(advancedService->getUUID());
   pAdvertising->enableScanResponse(true);
   pAdvertising->start();
-  
+
   serverEnable = true;
   Serial.printf("Advertising Started\n");
   esp_event_handler_register_with(context->getEventLoop(), MCOMPASS_EVENT, 0,

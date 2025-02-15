@@ -3,7 +3,8 @@
 ///////////////////// 宏定义 ///////////////////////
 #define NUM_LEDS 42
 #define MAX_FRAME_INDEX 26
-
+#define TIME_ZONE (+8)   // Beijing Time
+#define YEAR_BASE (2000) // date in GPS starts from 2000
 ///////////////////// 引脚定义 ///////////////////////
 #define DATA_PIN 6
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -26,9 +27,9 @@
 // 默认连接连接WiFi等待时间 15秒
 #define DEFAULT_WIFI_CONNECT_TIME 15
 // 默认无client连接关闭web server时间
-#define DEFAULT_SERVER_TIMEOUT 30
+#define DEFAULT_SERVER_TIMEOUT 120
 // 默认检测不到GPS,关闭GPS供电时间
-#define DEFAULT_GPS_DETECT_TIMEOUT 60
+#define DEFAULT_GPS_DETECT_TIMEOUT 30
 
 // 默认初始的坐标值
 #define DEFAULT_INVALID_LOCATION_VALUE 255.0f

@@ -32,6 +32,7 @@ void preference::init(Context *context) {
   ctx->setSsid(tempSsid);
   ctx->setPassword(tempPassword);
   ctx->setModel(tempDeviceModel);
+  ctx->setWorkType(tempDeviceModel == Model::GPS ? WorkType::SPAWN : WorkType::SOUTH);
 }
 
 void preference::saveSpawnLocation(Location location) {
@@ -161,6 +162,7 @@ void preference::getCustomDeviceModel(Model &model) {
   Preferences preferences;
   preferences.begin(PREFERENCE_NAME, false);
   if (!preferences.isKey(MODEL_KEY)) {
+    model = DEFAULT_MODEL;
     preferences.end();
     return;
   }

@@ -21,149 +21,171 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
   Event::Body *evt = (Event::Body *)event_data;
   Context &context = Context::getInstance();
   switch (evt->type) {
-    case Event::Type::BUTTON_CLICK: {
-      ESP_LOGI(TAG, "BUTTON_CLICK");
-      auto deviceState = context.getDeviceState();
-      auto workType = context.getWorkType();
-      switch (deviceState) {
-        case State::COMPASS: {
-          // 切换罗盘工作类型
-          ESP_LOGI(TAG, "Toggle WorkType to %s",
-                   workType == WorkType::SPAWN ? "SOUTH" : "SPAWN");
-          context.toggleWorkType();
-          break;
-        }
-        default:
-          break;
-      }
-    } break;
-    case Event::Type::BUTTON_LONG_PRESS: {
-      ESP_LOGI(TAG, "BUTTON_LONG_PRESS");
-      auto deviceState = context.getDeviceState();
-      auto workType = context.getWorkType();
-      auto currentLoc = context.getCurrentLocation();
-      switch (deviceState) {
-        // COMPASS模式下响应长按事件
-        case State::COMPASS: {
-          // 出生针模式下， 长按设置新的出生点
-          if (workType == WorkType::SPAWN) {
-            // 检查GPS坐标是否有效
-            if (gps::isValidGPSLocation(currentLoc)) {
-              preference::saveSpawnLocation(currentLoc);
-              context.setSpawnLocation(currentLoc);
-              ESP_LOGI(TAG, "Set spawn location to {%.2f,%.2f}",
-                       currentLoc.latitude, currentLoc.longitude);
-            } else {
-              ESP_LOGW(TAG, "Can't set spawn location, invalid GPS data.");
-            }
-          } else if (workType == WorkType::SOUTH) {
-            // 指南针模式下， 长按切换数据源
-            ESP_LOGI(TAG, "Switch Data Source to Nether");
-            if (context.getSubscribeSource() == Event::Source::SENSOR) {
-              context.setSubscribeSource(Event::Source::NETHER);
-            } else if (context.getSubscribeSource() == Event::Source::NETHER) {
-              context.setSubscribeSource(Event::Source::SENSOR);
-            }
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    } break;
-    case Event::Type::FACTORY_RESET: {
-      ESP_LOGI(TAG, "FACTORY_RESET");
-      // 启动异步倒计时任务
-      xTaskCreate(
-          [](void *ctx) {
-            ESP_LOGI(TAG, "cast context %p", ctx);
-            auto context = static_cast<Context *>(ctx);
-            auto deviceState = context->getDeviceState();
-            ESP_LOGI(TAG, "deviceState=%d", deviceState);
-            if (deviceState != State::COMPASS) {
-              vTaskDelete(NULL);
-              return;
-            }
-            context->setDeviceState(State::INFO);
-            ESP_LOGW(TAG, "Factory Reset!!!");
-            // 恢复出厂设置
-            // 倒计时3秒
-            pixel::counterDown(3);
-            preference::factoryReset();
-            // 重启
-            esp_restart();
-          },
-          "factory_reset", 2048, &context, 1, NULL);
-    } break;
-    case Event::Type::AZIMUTH: {
-      // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
-      // evt->azimuth.angle);
-      context.setAzimuth(evt->azimuth.angle);
-      // 状态校验, 非COMPASS状态忽略方位角数据
-      if (context.getDeviceState() != State::COMPASS) return;
-      // 校验订阅数据源头, 忽略非订阅的源
-      if (context.getSubscribeSource() != evt->source) return;
-      // 校验刷新频率, 限制帧率30Hz
-      if (millis() - last_update < 33) return;
-      pixel::setPointerColor(context.getColor().southColor);
-      pixel::showByAzimuth(360 - evt->azimuth.angle);
-      last_update = millis();
-    } break;
-    case Event::Type::TEXT: {  // 状态校验, 非INFO状态,忽略TEXT
-      if (context.getDeviceState() != State::INFO) return;
-      ESP_LOGW(TAG, "TEXT %s", evt->TEXT.text);
-      xTaskCreate(
-          [](void *pvParams) {
-            auto event = (Event::Body *)pvParams;
-            Context &context = Context::getInstance();
-            String text = String(event->TEXT.text);
-            int x = 0;
-            size_t length = text.length();
-            int xLimit = -length * 4;
-            while (context.getDeviceState() == State::INFO) {
-              FastLED.clear();
-              for (size_t i = 0; i < length; i++) {
-                pixel::drawChar(text.charAt(i), x + i * 4, 0, CRGB::Green);
-              }
-              FastLED.show();
-              delay(100);
-              x--;
-              if (x < xLimit) {
-                x = 10;
-              }
-            }
-            ESP_LOGI(TAG, "Exit Info State");
-            vTaskDelete(NULL);
-          },
-          "calibrate", 2048, evt, 1, NULL);
-    } break;
-    case Event::Type::SENSOR_CALIBRATE: {
-      ESP_LOGI(TAG, "SENSOR_CALIBRATE");
-      xTaskCreate(
-          [](void *ctx) {
-            auto context = static_cast<Context *>(ctx);
-            auto deviceState = context->getDeviceState();
-            ESP_LOGI(TAG, "deviceState=%d", deviceState);
-            context->setDeviceState(State::INFO);
-            Event::Body event;
-            event.type = Event::Type::TEXT;
-            event.source = Event::Source::OTHER;
-            strcpy(event.TEXT.text, "Claibrate");
-            // 倒计时3秒
-            pixel::counterDown(3);
-            ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(),
-                                              MCOMPASS_EVENT, 0, &event,
-                                              sizeof(event), 0));
-            ESP_LOGW(TAG, "Calibrate Start");
-            sensor::calibrate();
-            context->setDeviceState(State::COMPASS);
-            ESP_LOGW(TAG, "Calibrate Done.");
-            vTaskDelete(NULL);
-          },
-          "calibrate", 2048, &context, configMAX_PRIORITIES - 1, NULL);
-    } break;
+  case Event::Type::BUTTON_CLICK: {
+    ESP_LOGI(TAG, "BUTTON_CLICK");
+    auto deviceState = context.getDeviceState();
+    auto workType = context.getWorkType();
+    switch (deviceState) {
+    case State::COMPASS: {
+      // 切换罗盘工作类型
+      ESP_LOGI(TAG, "Toggle WorkType to %s",
+               workType == WorkType::SPAWN ? "SOUTH" : "SPAWN");
+      context.toggleWorkType();
+      break;
+    }
     default:
       break;
+    }
+  } break;
+  case Event::Type::BUTTON_LONG_PRESS: {
+    ESP_LOGI(TAG, "BUTTON_LONG_PRESS");
+    auto deviceState = context.getDeviceState();
+    auto workType = context.getWorkType();
+    auto currentLoc = context.getCurrentLocation();
+    switch (deviceState) {
+    // COMPASS模式下响应长按事件
+    case State::COMPASS: {
+      // 出生针模式下， 长按设置新的出生点
+      if (workType == WorkType::SPAWN) {
+        // 检查GPS坐标是否有效
+        if (gps::isValidGPSLocation(currentLoc)) {
+          preference::saveSpawnLocation(currentLoc);
+          context.setSpawnLocation(currentLoc);
+          ESP_LOGI(TAG, "Set spawn location to {%.2f,%.2f}",
+                   currentLoc.latitude, currentLoc.longitude);
+        } else {
+          ESP_LOGW(TAG, "Can't set spawn location, invalid GPS data.");
+        }
+      } else if (workType == WorkType::SOUTH) {
+        // 指南针模式下， 长按切换数据源
+        ESP_LOGI(TAG, "Switch Data Source to Nether");
+        if (context.getSubscribeSource() == Event::Source::SENSOR) {
+          context.setSubscribeSource(Event::Source::NETHER);
+        } else if (context.getSubscribeSource() == Event::Source::NETHER) {
+          context.setSubscribeSource(Event::Source::SENSOR);
+        }
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  } break;
+  case Event::Type::FACTORY_RESET: {
+    ESP_LOGI(TAG, "FACTORY_RESET");
+    // 启动异步倒计时任务
+    xTaskCreate(
+        [](void *ctx) {
+          ESP_LOGI(TAG, "cast context %p", ctx);
+          auto context = static_cast<Context *>(ctx);
+          auto deviceState = context->getDeviceState();
+          ESP_LOGI(TAG, "deviceState=%d", deviceState);
+          if (deviceState != State::COMPASS) {
+            vTaskDelete(NULL);
+            return;
+          }
+          context->setDeviceState(State::INFO);
+          ESP_LOGW(TAG, "Factory Reset!!!");
+          // 恢复出厂设置
+          // 倒计时3秒
+          pixel::counterDown(3);
+          preference::factoryReset();
+          // 重启
+          esp_restart();
+        },
+        "factory_reset", 2048, &context, 1, NULL);
+  } break;
+  case Event::Type::AZIMUTH: {
+    // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
+    // evt->azimuth.angle);
+    context.setAzimuth(evt->azimuth.angle);
+    // 状态校验, 非COMPASS状态忽略方位角数据
+    if (context.getDeviceState() != State::COMPASS)
+      return;
+    // 校验订阅数据源头, 忽略非订阅的源
+    if (context.getSubscribeSource() != evt->source)
+      return;
+    // 校验刷新频率, 限制帧率30Hz
+    if (millis() - last_update < 33)
+      return;
+    if (context.getWorkType() == WorkType::SOUTH) {
+      ESP_LOGI(TAG, "set south color to 0x%x", context.getColor().southColor);
+      pixel::setPointerColor(context.getColor().southColor);
+      pixel::showByAzimuth(360 - evt->azimuth.angle);
+    } else if (context.getWorkType() == WorkType::SPAWN) {
+      ESP_LOGI(TAG, "set spawn color to 0x%x", context.getColor().spawnColor);
+      pixel::setPointerColor(context.getColor().spawnColor);
+      // 如果当前位置无效, 则只会显示来自数据源Nether的方位角
+      if (!gps::isValidGPSLocation(context.getCurrentLocation()) &&
+          evt->source == Event::Source::NETHER) {
+        pixel::showByAzimuth(evt->azimuth.angle);
+      } else {
+        // 如果当前位置有效, 则显示当前位置的方位角, 计算方位角
+        pixel::showFrameByLocation(context.getSpawnLocation().latitude,
+                                   context.getSpawnLocation().longitude,
+                                   context.getCurrentLocation().latitude,
+                                   context.getCurrentLocation().longitude,
+                                   evt->azimuth.angle);
+      }
+    }
+    last_update = millis();
+  } break;
+  case Event::Type::TEXT: { // 状态校验, 非INFO状态,忽略TEXT
+    if (context.getDeviceState() != State::INFO)
+      return;
+    ESP_LOGW(TAG, "TEXT %s", evt->TEXT.text);
+    xTaskCreate(
+        [](void *pvParams) {
+          auto event = (Event::Body *)pvParams;
+          Context &context = Context::getInstance();
+          String text = String(event->TEXT.text);
+          int x = 0;
+          size_t length = text.length();
+          int xLimit = -length * 4;
+          while (context.getDeviceState() == State::INFO) {
+            FastLED.clear();
+            for (size_t i = 0; i < length; i++) {
+              pixel::drawChar(text.charAt(i), x + i * 4, 0, CRGB::Green);
+            }
+            FastLED.show();
+            delay(100);
+            x--;
+            if (x < xLimit) {
+              x = 10;
+            }
+          }
+          ESP_LOGI(TAG, "Exit Info State");
+          vTaskDelete(NULL);
+        },
+        "calibrate", 2048, evt, 1, NULL);
+  } break;
+  case Event::Type::SENSOR_CALIBRATE: {
+    ESP_LOGI(TAG, "SENSOR_CALIBRATE");
+    xTaskCreate(
+        [](void *ctx) {
+          auto context = static_cast<Context *>(ctx);
+          auto deviceState = context->getDeviceState();
+          ESP_LOGI(TAG, "deviceState=%d", deviceState);
+          context->setDeviceState(State::INFO);
+          Event::Body event;
+          event.type = Event::Type::TEXT;
+          event.source = Event::Source::OTHER;
+          strcpy(event.TEXT.text, "Claibrate");
+          // 倒计时3秒
+          pixel::counterDown(3);
+          ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(),
+                                            MCOMPASS_EVENT, 0, &event,
+                                            sizeof(event), 0));
+          ESP_LOGW(TAG, "Calibrate Start");
+          sensor::calibrate();
+          context->setDeviceState(State::COMPASS);
+          ESP_LOGW(TAG, "Calibrate Done.");
+          vTaskDelete(NULL);
+        },
+        "calibrate", 2048, &context, configMAX_PRIORITIES - 1, NULL);
+  } break;
+  default:
+    break;
   }
 }
 void setup() {
@@ -190,7 +212,8 @@ void setup() {
   ESP_LOGI(
       TAG,
       "Context {\n "
-      "ServerMode:%d\n PointerColor{0x%x,0x%x}\n Brightness:%d\n "
+      "ServerMode:%d\n PointerColor{spawnColor:0x%x,southColor:0x%x}\n "
+      "Brightness:%d\n "
       "SpawnLocation:{latitude:%.2f,longitude:%.2f}\n WiFi:%s\n Model:%s\n "
       "HasSensor:%d\n detectGPS:%d\n "
       "}",

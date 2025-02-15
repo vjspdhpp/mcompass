@@ -9,7 +9,14 @@ using namespace mcompass;
 static const char *TAG = "BOARD";
 static uint32_t last_time = 0;
 Context &context = Context::getInstance();
-static void setupContext() { preference::init(&context); }
+static void setupContext() { preference::init(&context);
+  // 根据设备型号设置默认订阅源
+  if (context.isGPSModel()) {
+    context.setSubscribeSource(Event::Source::NETHER);
+  } else {
+    context.setSubscribeSource(Event::Source::SENSOR);
+  }
+}
 
 // 校准检测
 void calibrateCheck() {
@@ -20,6 +27,7 @@ void calibrateCheck() {
 
 void board::init() {
   Serial.begin(115200);
+  delay(1000);
   ESP_LOGI(TAG, "Board init %p", &context);
   // 初始化上下文
   setupContext();
