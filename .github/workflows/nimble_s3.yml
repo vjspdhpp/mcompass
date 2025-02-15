@@ -22,7 +22,7 @@ jobs:
           DEFAULT_MODEL: ${{ matrix.model }}
           DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
         with:
-          environments: "" # Specify environments, e.g., "env1,env2"
+          environments: "airm2m_core_esp32c3" # Specify environments, e.g., "env1,env2"
           targets: ""      # Specify targets, e.g., "upload,monitor"
           project-dir: "./Firmware/"  # Specify project directory
           project-conf: "" # Specify a custom platformio.ini
