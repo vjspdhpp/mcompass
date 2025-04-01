@@ -4,3 +4,4 @@ Mod/run/
 Doc/.vitepress/cache/
 Doc/node_modules/
 Firmware/.vscode/
+.idea/

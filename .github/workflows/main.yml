@@ -1,4 +1,4 @@
-name: Build Firmware Workflow
+name: Build Firmware Workflow on main
 
 on:
   push:
@@ -8,12 +8,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        model: [GPS, LITE]
+        server_mode: [BLE, WEB]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Run PlatformIO Action
         uses: karniv00l/platformio-run-action@e6467e68a40b381568bad448faf0a1413c72fc7f
+        env:
+          DEFAULT_MODEL: ${{ matrix.model }}
+          DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
         with:
           environments: "" # Specify environments, e.g., "env1,env2"
           targets: ""      # Specify targets, e.g., "upload,monitor"
@@ -39,12 +46,12 @@ jobs:
           0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
           0x10000 ./Firmware/.pio/build/airm2m_core_esp32c3/firmware.bin \
           0x210000 ./Firmware/.pio/build/airm2m_core_esp32c3/littlefs.bin \
-          -o mcompass.bin
+          -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
       - name: Get commit hash
         id: get_commit_hash
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Upload merged firmware
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: mcompass-${{ env.COMMIT_HASH }}
-          path: mcompass.bin
+          name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ env.COMMIT_HASH }}
+          path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin

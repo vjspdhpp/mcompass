@@ -1,385 +1,229 @@
 #include <FastLED.h>
 #include <NimBLEDevice.h>
-#include <OneButton.h>
 #include <Preferences.h>
 #include <QMC5883LCompass.h>
-#include <TinyGPSPlus.h>
 #include <esp_log.h>
 #include <esp_task_wdt.h>
 
-#include "func.h"
-#include "macro_def.h"
+#include "board.h"
+#include "event.h"
 
-extern CRGB leds[NUM_LEDS];
-extern QMC5883LCompass compass;
-TinyGPSPlus gps;
-HardwareSerial GPSSerial(0);
-OneButton button(CALIBRATE_PIN, true);
-NimBLEServer *pServer;
-// 目标位置
-Location targetLoc = {.latitude = 43.0f, .longitude = 126.0f};
-// 当前位置
-Location currentLoc = {.latitude = 1000.0f, .longitude = 1000.0f};
-// 状态
-CompassState deviceState = CompassState::STATE_LOST_BEARING;
-CompassState lastDeviceState = CompassState::STATE_LOST_BEARING;
-// 工作模式模式
-CompassType deviceType = CompassType::LocationCompass;
-// 用来显示特定动画的帧索引
-uint8_t animationFrameIndex = 0;
-// GPS休眠时间
-uint32_t gpsSleepInterval = 60 * 60; // 单位:秒
-// 是否有GPS
-bool hasGPS = false;
-// 超时检测计数器
-uint32_t serverTimeoutCount = 0;
-// 定位任务Handle
-TaskHandle_t gpsTask = NULL;
-// GPS休眠配置表
-const SleepConfig sleepConfigs[] = {
-    {10.0f, 0, true},         // 在10KM距离内，不休眠
-    {50.0f, 5 * 60, false},   // 超过50KM，休眠5分钟
-    {100.0f, 10 * 60, false}, // 超过100KM，休眠10分钟
-    {200.0f, 15 * 60, false}, // 超过200KM，休眠15分钟
-};
-// 强制进入下界
-bool forceTheNether = false;
+using namespace mcompass;
 
-void setup() {
-  // 延时,用于一些特殊情况下能够重新烧录
-  delay(1500);
-  // 配置校准引脚状态
-  pinMode(CALIBRATE_PIN, INPUT_PULLUP);
-  pinMode(GPS_EN_PIN, OUTPUT);
-  digitalWrite(GPS_EN_PIN, HIGH);
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(128);
-  long t = millis();
-  Serial.begin(115200);
-  // 配置GPS串口
-  GPSSerial.begin(9600, SERIAL_8N1, RX, TX);
-  // 启动GPS,用于GPS存在性检测
-  digitalWrite(GPS_EN_PIN, LOW);
-  bool calibrate = false;
-  while (millis() - t < 2500) {
-    showFrame(animationFrameIndex, 0xFFFFFF);
-    animationFrameIndex++;
-    if (animationFrameIndex > MAX_FRAME_INDEX) {
-      animationFrameIndex = 0;
-    }
-    delay(30);
-    // 启动时候检测到按下随后进入校准
-    if (digitalRead(CALIBRATE_PIN) == LOW) {
-      calibrate = true;
-    }
-    // 检查在此期间有没有GPS串口数据来判断GPS模块是否接入
-    if (GPSSerial.available() > 0) {
-      hasGPS = true;
-    }
-  }
-  if (hasGPS) {
-    Serial.printf("Find GPS Module!\n");
-  } else {
-    // 没有GPS的话会默认进入指南模式
-    deviceType = CompassType::NorthCompass;
-    Serial.printf("GPS Module Not Found!\n");
-  }
+ESP_EVENT_DEFINE_BASE(MCOMPASS_EVENT);
 
-  // 创建显示任务
-  xTaskCreate(displayTask, "displayTask", 4096, NULL, 2, NULL);
-  // 创建位置任务
-  xTaskCreate(locationTask, "locationTask", 4096, NULL, 2, &gpsTask);
-  xTaskCreate(buttonTask, "buttonTask", 4096, NULL, 2, NULL);
+static const char *TAG = "MAIN";
+esp_event_loop_handle_t eventLoop;
 
-  // 获取目标位置
-  getHomeLocation(targetLoc);
-  Serial.print("targetLoc.latitude:");
-  Serial.print(targetLoc.latitude);
-  Serial.print(",targetLoc.latitude:");
-  Serial.print(targetLoc.longitude);
-  Serial.println();
-  // 初始化罗盘
-  compass.init();
-  // 校准引脚被按下时候进行校准
-  if (calibrate) {
-    calibrateCompass();
-  }
-
-  deviceState = STATE_WAIT_GPS;
-  button.attachClick(
-      [](void *scope) {
-        switch (deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (deviceType == CompassType::LocationCompass) {
-            deviceType = CompassType::NorthCompass;
-          } else {
-            deviceType = CompassType::LocationCompass;
-          }
-          Serial.print("Toggle Compass Type to ");
-          Serial.println(deviceType == CompassType::LocationCompass
-                             ? "LocationCompass"
-                             : "NorthCompass");
-          break;
-        }
-
-        default:
-          break;
-        }
-      },
-      &button);
-  button.attachLongPressStart(
-      [](void *scope) {
-        switch (deviceState) {
-        case CompassState::STATE_COMPASS: {
-          if (deviceType == CompassType::LocationCompass) {
-            // 设置当前地点为Home
-            // 检查GPS状态
-            if (currentLoc.latitude < 500.0f) {
-              saveHomeLocation(currentLoc);
-              targetLoc.latitude = currentLoc.latitude;
-              targetLoc.longitude = currentLoc.longitude;
-              Serial.println("Set Home");
-            } else {
-              Serial.println("Can't set home");
-            }
-          } else {
-            // 指南针模式下长按切换到theNether
-            forceTheNether = !forceTheNether;
-          }
-          break;
-        }
-        case CompassState::STATE_CONNECT_WIFI: {
-          Serial.println("Clear WiFi");
-          // 清空WiFi配置
-          Preferences preferences;
-          preferences.begin("wifi", false);
-          preferences.putString("ssid", "");
-          preferences.putString("password", "");
-          preferences.end();
-          delay(3000);
-          esp_restart();
-        }
-
-        default:
-          break;
-        }
-      },
-      &button);
-  deviceState = STATE_COMPASS;
-  setupServer();
-}
-
-void loop() {
-  delay(1000);
-  if (millis() > 2 * 60 * 1000L && shouldStopServer()) {
-    // 关闭本地网页服务
-    endWebServer();
-  }
-  // 启动后60秒内没有检测到GPS模块, 关闭GPS的TASK
-  if (millis() > 60 * 1000L && !hasGPS) {
-    if (gpsTask != NULL) {
-      Serial.printf("Delete GPS Task\n");
-      vTaskDelete(gpsTask);
-      gpsTask = NULL;
-    }
-  }
-  serverTimeoutCount++;
-}
-
-void displayTask(void *pvParameters) {
-  while (1) {
+void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
+                void *event_data) {
+  static uint32_t last_update = 0;
+  Event::Body *evt = (Event::Body *)event_data;
+  Context &context = Context::getInstance();
+  switch (evt->type) {
+  case Event::Type::BUTTON_CLICK: {
+    ESP_LOGI(TAG, "BUTTON_CLICK");
+    auto deviceState = context.getDeviceState();
+    auto workType = context.getWorkType();
     switch (deviceState) {
-    case STATE_LOST_BEARING:
-    case STATE_WAIT_GPS: {
-      // 等待GPS数据
-      theNether();
-      delay(50);
-      continue;
-    }
-    case STATE_COMPASS: {
-      compass.read();
-      float azimuth = compass.getAzimuth();
-      if (azimuth < 0) {
-        azimuth += 360;
-      }
-      if (deviceType == CompassType::LocationCompass) {
-        // 检测当前坐标是否合法
-        if (currentLoc.latitude < 200.0f) {
-          showFrameByLocation(targetLoc.latitude, targetLoc.longitude,
-                              currentLoc.latitude, currentLoc.longitude,
-                              azimuth);
-        } else {
-          theNether();
-          delay(50);
-          continue;
-        }
-      } else {
-#if DEBUG_DISPLAY
-        Serial.printf("Azimuth = %d\n", azimuth);
-#endif
-        if (forceTheNether) {
-          theNether();
-        } else {
-          showFrameByAzimuth(360 - azimuth);
-        }
-      }
-      delay(50);
-      break;
-    }
-    case STATE_CONNECT_WIFI:
-      showFrame(animationFrameIndex, CRGB::Green);
-      animationFrameIndex++;
-      if (animationFrameIndex > MAX_FRAME_INDEX) {
-        animationFrameIndex = 0;
-      }
-      delay(30);
-      break;
-    case STATE_SERVER_COLORS: {
-      // showServerColors();
-      delay(50);
-      break;
-    }
-    case STATE_SERVER_WIFI: {
-      showServerWifi();
-      break;
-    }
-    case STATE_SERVER_SPAWN: {
-      showServerSpawn();
-      break;
-    }
-    case STATE_SERVER_INFO: {
-      showServerInfo();
-      break;
-    }
-    case STATE_HOTSPOT: {
-      showFrame(animationFrameIndex, CRGB::Yellow);
-      animationFrameIndex++;
-      if (animationFrameIndex > MAX_FRAME_INDEX) {
-        animationFrameIndex = 0;
-      }
-      delay(30);
+    case State::COMPASS: {
+      // 切换罗盘工作类型
+      ESP_LOGI(TAG, "Toggle WorkType to %s",
+               workType == WorkType::SPAWN ? "SOUTH" : "SPAWN");
+      context.toggleWorkType();
       break;
     }
     default:
-      delay(50);
       break;
     }
-  }
-}
-
-/**
- * @brief 位置任务
- *
- */
-void locationTask(void *pvParameters) {
-  // esp_task_wdt_init(30, false);
-  while (1) {
-    while (GPSSerial.available() > 0) {
-      char t = GPSSerial.read();
-#if DEBUG_DISPLAY
-      Serial.print(t);
-#endif
-      if (gps.encode(t)) {
-        // 有效的GPS编码数据
-        hasGPS = true;
-#if DEBUG_DISPLAY
-        Serial.print("Location: ");
-#endif
-        if (gps.location.isValid()) {
-#if DEBUG_DISPLAY
-          Serial.print(gps.location.lat(), 6);
-          Serial.print(",");
-          Serial.print(gps.location.lng(), 6);
-#endif
-          // 坐标有效情况下更新本地坐标
-          currentLoc.latitude = static_cast<float>(gps.location.lat());
-          currentLoc.longitude = static_cast<float>(gps.location.lng());
-          // 计算两地距离
-          double distance =
-              complexDistance(currentLoc.latitude, currentLoc.longitude,
-                              targetLoc.latitude, targetLoc.longitude);
-          Serial.printf("%f km to target.\n", distance);
-          // 获取最接近的临界值
-          float threshholdDistance = 0;
-          size_t sleepConfigSize = sizeof(sleepConfigs) / sizeof(SleepConfig);
-          for (int i = sleepConfigSize - 1; i >= 0; i--) {
-            if (distance >= sleepConfigs[i].distanceThreshold) {
-              threshholdDistance = sleepConfigs[i].distanceThreshold;
-              Serial.printf("use threshold %f km.\n", threshholdDistance);
-              break;
-            }
-          }
-          float modDistance = fmod(distance, threshholdDistance);
-          // 根据距离调整GPS休眠时间,
-          for (int i = 0; i < sleepConfigSize; i++) {
-            if (modDistance <= sleepConfigs[i].distanceThreshold) {
-              gpsSleepInterval = sleepConfigs[i].sleepInterval;
-              if (sleepConfigs[i].gpsEnable) {
-                digitalWrite(GPS_EN_PIN, LOW);
-              } else {
-                digitalWrite(GPS_EN_PIN, HIGH);
-              }
-              Serial.printf("GPS Sleep %d seconds\n", gpsSleepInterval);
-              break;
-            }
-          }
+  } break;
+  case Event::Type::BUTTON_LONG_PRESS: {
+    ESP_LOGI(TAG, "BUTTON_LONG_PRESS");
+    auto deviceState = context.getDeviceState();
+    auto workType = context.getWorkType();
+    auto currentLoc = context.getCurrentLocation();
+    switch (deviceState) {
+    // COMPASS模式下响应长按事件
+    case State::COMPASS: {
+      // 出生针模式下， 长按设置新的出生点
+      if (workType == WorkType::SPAWN) {
+        // 检查GPS坐标是否有效
+        if (gps::isValidGPSLocation(currentLoc)) {
+          preference::saveSpawnLocation(currentLoc);
+          context.setSpawnLocation(currentLoc);
+          ESP_LOGI(TAG, "Set spawn location to {%.2f,%.2f}",
+                   currentLoc.latitude, currentLoc.longitude);
+        } else {
+          ESP_LOGW(TAG, "Can't set spawn location, invalid GPS data.");
         }
-      } else {
-#if DEBUG_DISPLAY
-        Serial.print("INVALID");
-#endif
+      } else if (workType == WorkType::SOUTH) {
+        // 指南针模式下， 长按切换数据源
+        ESP_LOGI(TAG, "Switch Data Source to Nether");
+        if (context.getSubscribeSource() == Event::Source::SENSOR) {
+          context.setSubscribeSource(Event::Source::NETHER);
+        } else if (context.getSubscribeSource() == Event::Source::NETHER) {
+          context.setSubscribeSource(Event::Source::SENSOR);
+        }
       }
-
-#if DEBUG_DISPLAY
-      Serial.print("  Date/Time: ");
-      if (gps.date.isValid()) {
-        Serial.print(gps.date.month());
-        Serial.print("/");
-        Serial.print(gps.date.day());
-        Serial.print("/");
-        Serial.print(gps.date.year());
-      } else {
-        Serial.print("INVALID");
-      }
-
-      Serial.print(" ");
-      if (gps.time.isValid()) {
-        if (gps.time.hour() < 10)
-          Serial.print("0");
-        Serial.print(gps.time.hour());
-        Serial.print(":");
-        if (gps.time.minute() < 10)
-          Serial.print("0");
-        Serial.print(gps.time.minute());
-        Serial.print(":");
-        if (gps.time.second() < 10)
-          Serial.print("0");
-        Serial.print(gps.time.second());
-        Serial.print(".");
-        if (gps.time.centisecond() < 10)
-          Serial.print("0");
-        Serial.print(gps.time.centisecond());
-      } else {
-        Serial.print("INVALID");
-      }
-      Serial.println();
-#endif
-      // Serial.println("available()");
+      break;
     }
-    if (gpsSleepInterval == 0) {
-      digitalWrite(GPS_EN_PIN, LOW);
-      gpsSleepInterval = 60 * 60;
-    } else {
-      gpsSleepInterval--;
+    default:
+      break;
     }
-    // esp_task_wdt_reset(); // 定期喂狗
-    delay(1000);
+  } break;
+  case Event::Type::FACTORY_RESET: {
+    ESP_LOGI(TAG, "FACTORY_RESET");
+    // 启动异步倒计时任务
+    xTaskCreate(
+        [](void *ctx) {
+          ESP_LOGI(TAG, "cast context %p", ctx);
+          auto context = static_cast<Context *>(ctx);
+          auto deviceState = context->getDeviceState();
+          ESP_LOGI(TAG, "deviceState=%d", deviceState);
+          if (deviceState != State::COMPASS) {
+            vTaskDelete(NULL);
+            return;
+          }
+          context->setDeviceState(State::INFO);
+          ESP_LOGW(TAG, "Factory Reset!!!");
+          // 恢复出厂设置
+          // 倒计时3秒
+          pixel::counterDown(3);
+          preference::factoryReset();
+          // 重启
+          esp_restart();
+        },
+        "factory_reset", 2048, &context, 1, NULL);
+  } break;
+  case Event::Type::AZIMUTH: {
+    // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
+    // evt->azimuth.angle);
+    context.setAzimuth(evt->azimuth.angle);
+    // 状态校验, 非COMPASS状态忽略方位角数据
+    if (context.getDeviceState() != State::COMPASS)
+      return;
+    // 校验订阅数据源头, 忽略非订阅的源
+    if (context.getSubscribeSource() != evt->source)
+      return;
+    // 校验刷新频率, 限制帧率30Hz
+    if (millis() - last_update < 33)
+      return;
+    if (context.getWorkType() == WorkType::SOUTH) {
+      ESP_LOGI(TAG, "set south color to 0x%x", context.getColor().southColor);
+      pixel::setPointerColor(context.getColor().southColor);
+      pixel::showByAzimuth(360 - evt->azimuth.angle);
+    } else if (context.getWorkType() == WorkType::SPAWN) {
+      ESP_LOGI(TAG, "set spawn color to 0x%x", context.getColor().spawnColor);
+      pixel::setPointerColor(context.getColor().spawnColor);
+      // 如果当前位置无效, 则只会显示来自数据源Nether的方位角
+      if (!gps::isValidGPSLocation(context.getCurrentLocation()) &&
+          evt->source == Event::Source::NETHER) {
+        pixel::showByAzimuth(evt->azimuth.angle);
+      } else {
+        // 如果当前位置有效, 则显示当前位置的方位角, 计算方位角
+        pixel::showFrameByLocation(context.getSpawnLocation().latitude,
+                                   context.getSpawnLocation().longitude,
+                                   context.getCurrentLocation().latitude,
+                                   context.getCurrentLocation().longitude,
+                                   evt->azimuth.angle);
+      }
+    }
+    last_update = millis();
+  } break;
+  case Event::Type::TEXT: { // 状态校验, 非INFO状态,忽略TEXT
+    if (context.getDeviceState() != State::INFO)
+      return;
+    ESP_LOGW(TAG, "TEXT %s", evt->TEXT.text);
+    xTaskCreate(
+        [](void *pvParams) {
+          auto event = (Event::Body *)pvParams;
+          Context &context = Context::getInstance();
+          String text = String(event->TEXT.text);
+          int x = 0;
+          size_t length = text.length();
+          int xLimit = -length * 4;
+          while (context.getDeviceState() == State::INFO) {
+            FastLED.clear();
+            for (size_t i = 0; i < length; i++) {
+              pixel::drawChar(text.charAt(i), x + i * 4, 0, CRGB::Green);
+            }
+            FastLED.show();
+            delay(100);
+            x--;
+            if (x < xLimit) {
+              x = 10;
+            }
+          }
+          ESP_LOGI(TAG, "Exit Info State");
+          vTaskDelete(NULL);
+        },
+        "calibrate", 2048, evt, 1, NULL);
+  } break;
+  case Event::Type::SENSOR_CALIBRATE: {
+    ESP_LOGI(TAG, "SENSOR_CALIBRATE");
+    xTaskCreate(
+        [](void *ctx) {
+          auto context = static_cast<Context *>(ctx);
+          auto deviceState = context->getDeviceState();
+          ESP_LOGI(TAG, "deviceState=%d", deviceState);
+          context->setDeviceState(State::INFO);
+          Event::Body event;
+          event.type = Event::Type::TEXT;
+          event.source = Event::Source::OTHER;
+          strcpy(event.TEXT.text, "Claibrate");
+          // 倒计时3秒
+          pixel::counterDown(3);
+          ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(),
+                                            MCOMPASS_EVENT, 0, &event,
+                                            sizeof(event), 0));
+          ESP_LOGW(TAG, "Calibrate Start");
+          sensor::calibrate();
+          context->setDeviceState(State::COMPASS);
+          ESP_LOGW(TAG, "Calibrate Done.");
+          vTaskDelete(NULL);
+        },
+        "calibrate", 2048, &context, configMAX_PRIORITIES - 1, NULL);
+  } break;
+  default:
+    break;
   }
 }
+void setup() {
+  // 延时,用于一些特殊情况下能够重新烧录
+  delay(500);
+  Context &context = Context::getInstance();
+  esp_event_loop_args_t loop_args = {
+      .queue_size = 128,
+      .task_name = "event_loop",
+      .task_priority = configMAX_PRIORITIES - 1,
+      .task_stack_size = 2048,
+  };
+  ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &eventLoop));
+  context.setEventLoop(eventLoop);
+  // 注册事件处理程序
+  ESP_ERROR_CHECK(esp_event_handler_register_with(eventLoop, MCOMPASS_EVENT, 0,
+                                                  dispatcher, NULL));
+  ESP_LOGI(TAG, "Event loop created %p", eventLoop);
 
-void buttonTask(void *pvParameters) {
-  while (1) {
-    button.tick();
-    delay(10);
-  }
+  // 初始化硬件
+  board::init();
+
+  // 输出上下文内容
+  ESP_LOGI(
+      TAG,
+      "Context {\n "
+      "ServerMode:%d\n PointerColor{spawnColor:0x%x,southColor:0x%x}\n "
+      "Brightness:%d\n "
+      "SpawnLocation:{latitude:%.2f,longitude:%.2f}\n WiFi:%s\n Model:%s\n "
+      "HasSensor:%d\n detectGPS:%d\n "
+      "}",
+      context.getServerMode(), context.getColor().spawnColor,
+      context.getColor().southColor, context.getBrightness(),
+      context.getSpawnLocation().latitude, context.getSpawnLocation().longitude,
+      context.getSsid(), context.getModel() == Model::GPS ? "GPS" : "LITE",
+      context.getHasSensor(), context.getDetectGPS());
+
+  ESP_LOGW(TAG, "Board initialized");
 }
+
+void loop() { vTaskDelay(pdMS_TO_TICKS(200)); }

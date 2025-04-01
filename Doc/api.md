@@ -45,7 +45,7 @@ by [DoraemonMiku](https://github.com/DoraemonMiku)
 - **类型:** `text/plain`
 - **内容:** 无
 
-## **设置帧索引**
+## **设置帧索引** [调试接口]
 
 ### **路径:** `/setIndex`
 
@@ -56,8 +56,8 @@ by [DoraemonMiku](https://github.com/DoraemonMiku)
 
 | 参数名     | 类型    | 必填  | 描述       |
 | ------- | ----- | --- | -------- |
-| `index` | `Int` | 是   | 要显示的帧索引。 |
-| `color` | `String` | 是   | 颜色的十六进制RGB值（例如: `#FF5252`）。 |
+| `index` | `Int` | 是   | 要显示的帧索引（0-最大帧索引） |
+| `color` | `String` | 否   | 可选颜色值（默认使用当前颜色） |
 
 ### **响应结果:**
 
@@ -106,9 +106,12 @@ OK
 | -------------- | -------- | ---------- |
 | `buildDate`    | `String` | 固件构建日期。    |
 | `buildTime`    | `String` | 固件构建时间。    |
-| `buildVersion` | `String` | 固件版本号。     |
-| `gitBranch`    | `String` | Git分支名。    |
+| `buildVersion` | `String` | 固件版本号。      |
+| `gitBranch`    | `String` | Git分支名。       |
 | `gitCommit`    | `String` | Git提交的哈希值。 |
+| `model`        | `String` | 设备型号。  GPS版本为1，标准版为0 |
+| `gpsStatus`    | `String` | GPS状态。 检测到了为1，否则为0 |
+| `sensorStatus` | `String` | 传感器状态。 初始化成功为1，否则为0 |
 
 ### **示例响应:**
 
@@ -118,7 +121,10 @@ OK
   "buildTime": "10:30:00",
   "buildVersion": "1.0.0",
   "gitBranch": "main",
-  "gitCommit": "abc123"
+  "gitCommit": "abc123",
+  "model": "1",
+  "gpsStatus": "1",
+  "sensorStatus": "1"
 }
 ```
 
@@ -225,18 +231,19 @@ OK
 
 ---
 
-## **设置颜色**
+## **设置指针颜色**
 
-### **路径:** `/setColor`
+### **路径:** `/pointColors`
 
 - **方法:** `POST`
-- **描述:** 设置所有灯珠为指定颜色（调试用）。
+- **描述:** 设置指针颜色
 
 ### **请求参数:**
 
 | 参数名     | 类型       | 必填  | 描述                          |
 | ------- | -------- | --- | --------------------------- |
-| `color` | `String` | 是   | 颜色的十六进制RGB值（例如: `#FF5252`）。 |
+| `spawnColor` | `String` | 否   | 出生针颜色 颜色的十六进制RGB值（例如: `#FF5252`）。 |
+| `southColor` | `String` | 否   | 指南针颜色 颜色的十六进制RGB值（例如: `#FF5252`）。 |
 
 ### **响应结果:**
 
@@ -245,10 +252,42 @@ OK
 ### **示例请求:**
 
 ```
-POST /setColor
+POST /pointColors
 Content-Type: application/x-www-form-urlencoded
 
-color=#FF5252
+spawnColor=#FF5252&southColor=#FF5252
+```
+
+## **获取指针颜色**
+
+### **路径:** `/pointColors`
+
+- **方法:** `GET`
+- **描述:** 获取指针颜色
+
+### **请求参数:**
+
+
+### **响应结果:**
+
+- **状态码:** `200 OK`
+- **类型:** `application/json`
+- **内容:** 指针颜色。
+
+### **响应字段说明:**
+
+| 字段名        | 类型       | 描述         |
+| ---------- | -------- | ---------- |
+| `spawnColor` | `String` | 出生针颜色。 |
+| `southColor` | `String` | 指南针颜色。 |
+
+### **示例请求:**
+
+```
+GET /pointColors
+Content-Type: application/x-www-form-urlencoded
+
+spawnColor=#FF5252&southColor=#FF5252
 ```
 
 ---
@@ -281,12 +320,12 @@ azimuth=180.0
 
 ---
 
-## **设置WiFi**
+## **设置WiFi** [兼容保留]
 
 ### **路径:** `/setWiFi`
 
 - **方法:** `POST`
-- **描述:** 设置设备的WiFi网络信息并重启设备。
+- **注意:** 此接口为旧版兼容保留，建议使用新的`/wifi`接口
 
 ### **请求参数:**
 
@@ -311,6 +350,79 @@ Content-Type: application/x-www-form-urlencoded
 
 ssid=MyNetwork&password=password123
 ```
+
+---
+
+## **亮度控制**
+
+### **路径:** `/brightness`
+
+- **方法:** `GET`
+- **描述:** 获取当前LED亮度值
+
+### **响应结果:**
+
+- **状态码:** `200 OK`
+- **类型:** `application/json`
+- **内容:** 亮度值（0-255）
+
+### **示例响应:**
+```json
+{"brightness": 128}
+```
+
+---
+
+### **路径:** `/brightness`
+
+- **方法:** `POST`
+- **描述:** 设置LED亮度
+
+### **请求参数:**
+
+| 参数名         | 类型      | 必填  | 描述       |
+| ----------- | ------- | --- | -------- |
+| `brightness`| `Int`   | 是   | 亮度值（0-255） |
+
+### **响应结果:**
+- **成功:** `200 OK`
+- **无效值:** `400 Bad Request` (亮度超出范围)
+
+---
+
+## **高级配置**
+
+### **路径:** `/advancedConfig`
+
+- **方法:** `GET`
+- **描述:** 获取高级配置信息
+
+### **响应字段说明:**
+| 字段名         | 类型      | 描述                  |
+| ----------- | ------- | ------------------- |
+| `model`     | `String`| 设备型号（0: 标准版, 1: GPS版） |
+| `serverMode`| `String`| 服务模式（0: WiFi, 1: BLE） |
+
+### **示例响应:**
+```json
+{"model": "1", "serverMode": "0"}
+```
+
+---
+
+### **路径:** `/advancedConfig`
+
+- **方法:** `POST`
+- **描述:** 设置高级配置
+
+### **请求参数:**
+| 参数名         | 类型      | 必填  | 描述                  |
+| ----------- | ------- | --- | ------------------- |
+| `serverMode`| `String`| 否   | 服务模式（"0": WiFi, "1": BLE） |
+| `model`     | `String`| 否   | 设备型号（"0": 标准版, "1": GPS版） |
+
+### **响应结果:**
+- **成功:** `200 OK`
 
 ---
 

@@ -1,6 +1,6 @@
 'use client';
-import { Tab, Tabs } from "@nextui-org/tabs";
-import { Card } from "@nextui-org/card";
+import { Tab, Tabs } from "@heroui/tabs";
+import { Card } from "@heroui/card";
 import WiFiPanel from "./wifi";
 import SpawnPanel from "./spwan";
 import InfoPanel from "./info";
@@ -16,7 +16,7 @@ export default function Preference() {
             <Tabs
                 aria-label="Options"
                 color={color as any}
-                onSelectionChange={(key) => {
+                onSelectionChange={(key: string) => {
                     if (key === "colors") setColor("default"); // default
                     if (key === "wifi") setColor("success"); // green
                     if (key === "spawn") setColor("primary"); // blue

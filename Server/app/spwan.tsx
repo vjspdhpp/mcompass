@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Button } from "@nextui-org/button";
-import { Input } from "@nextui-org/input";
-import { Popover, PopoverTrigger, PopoverContent } from "@nextui-org/popover";
-import { Progress } from "@nextui-org/progress";
+import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
+import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
+import { Progress } from "@heroui/progress";
 
 export default function SpawnPanel() {
     const [latitude, setLatitude] = useState('');
@@ -65,9 +65,9 @@ export default function SpawnPanel() {
         }
     }
     return <div className="w-full flex flex-col items-center justify-center flex-wrap gap-4">
-        <p className="px-3 text-start w-full">Compass will point to <br />this location<br />when has GPS signal.</p>
-        <Input type="number" label="Latitude" value={latitude} onChange={onLatitudeChange} />
-        <Input type="number" label="Longitude" value={longitude} onChange={onLongitudeChange} />
+        <p className="px-3 text-start w-full">设置出生点<br />有GPS信号时候会指向这个地点</p>
+        <Input type="number" label="纬度" value={latitude} onChange={onLatitudeChange} />
+        <Input type="number" label="经度" value={longitude} onChange={onLongitudeChange} />
         <Popover placement="bottom" isOpen={errorPopover} >
             <PopoverTrigger>
                 <Button color="primary" variant="ghost" className="max-w-xs w-full" onClick={handleSave} isDisabled={!canSave}>
@@ -76,13 +76,13 @@ export default function SpawnPanel() {
                         isIndeterminate
                         aria-label="Loading..."
                         className="max-w-md"
-                    /> : "Save"}
+                    /> : "保存"}
                 </Button>
             </PopoverTrigger>
             <PopoverContent>
                 <div className="px-1 py-2">
                     <div className="text-small font-bold">Value Error</div>
-                    <div className="text-tiny">Latitude and Longitude must be numbers between -90 and 90, and -180 and 180 respectively.</div>
+                    <div className="text-tiny">纬度值范围应该是-90~90,经度值范围应该是-180~180.</div>
                 </div>
             </PopoverContent>
         </Popover>

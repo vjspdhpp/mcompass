@@ -1,4 +1,4 @@
-import { Switch } from "@nextui-org/switch";
+import { Switch } from "@heroui/switch";
 import { useState } from "react";
 
 export default function DebugPanel() {
