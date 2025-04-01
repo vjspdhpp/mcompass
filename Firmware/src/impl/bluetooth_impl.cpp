@@ -377,7 +377,7 @@ void ble_server::init(Context *context) {
   advancedService->start();
 
   NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-  pAdvertising->setName("Lenovo");
+  pAdvertising->setName("MCOMPASS");
   pAdvertising->addServiceUUID(baseService->getUUID());
   pAdvertising->addServiceUUID(advancedService->getUUID());
   pAdvertising->enableScanResponse(true);
