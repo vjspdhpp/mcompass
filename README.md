@@ -1,10 +1,12 @@
 # A Real-World Minecraft Compass
-
-[Youtube](https://www.youtube.com/watch?v=OetinqewrzU&t=18s)
-[bilibili](https://www.bilibili.com/video/BV1cfBzYnE2k/)
-
 - [English](README.md)
 - [中文](README.zh-CN.md)
+
+
+## Video Introduction 
+* [Youtube](https://www.youtube.com/watch?v=OetinqewrzU)
+* [bilibili](https://www.bilibili.com/video/BV1cfBzYnE2k/)
+
 
 ![Index](./Doc/public/MCompass.png)
 
@@ -55,6 +57,7 @@ Finally, use PlatformIO’s **Build Filesystem Image** and **Upload Filesystem I
 
 ### Bluetooth Mode
 Since the Bluetooth mode relies on WeChat Mini Program for configuration, and most users may not use WeChat, this section will not be translated for now. If needed, please let me know and I'll provide the translation.
+
 ![mini_program](./Doc/public/mini_program.jpg)
 
 ### Web Server Mode
@@ -87,7 +90,8 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
 
 ## PCB & Panel Files
 Temporarily using the JLCEDA Chinese version link. I will upload it to the JLCPCB English site as soon as possible.
-[PCB Project & Panel Files](https://oshwhub.com/chaosgoo/wcompass)
+
+[PCB Project & Panel Files on OSHWLab](https://oshwlab.com/vjspdhpp/a-real-world-minecraft-compass) 
 
 ## References
 [使用GPS坐标来计算距离和方位角 by 蓝色的飘漂](https://johnnyqian.net/blog/gps-locator.html)
