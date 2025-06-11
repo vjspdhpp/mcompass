@@ -36,3 +36,5 @@ env.Append(CPPDEFINES=[
     ("DEFAULT_MODEL", model_enum),  # 覆盖宏定义中的默认型号
     ("DEFAULT_SERVER_MODE", server_mode_enum)  # 新增服务器模式定义
 ])
+print(f"Model: {model}, Server Mode: {server_mode}")
+print(f"Model enum: {model_enum}, Server Mode enum: {server_mode_enum}")
