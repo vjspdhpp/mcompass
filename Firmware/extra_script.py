@@ -23,8 +23,9 @@ def get_git_info():
         return "unknown", "unknown"
 
 # 读取环境变量设置型号和服务器模式
-model = env.GetProjectOption("DEFAULT_MODEL", "GPS")  # 默认GPS
-server_mode = env.GetProjectOption("DEFAULT_SERVER_MODE", "BLE")  # 新增服务器模式参数
+model = os.getenv("DEFAULT_MODEL", "GPS")          # 默认 "GPS"
+server_mode = os.getenv("DEFAULT_SERVER_MODE", "BLE")  # 默认 "BLE"
+
 model_enum = f"mcompass::Model::{model.upper()}"
 server_mode_enum = f"mcompass::ServerMode::{server_mode.upper()}"  # 生成服务器模式枚举
 
