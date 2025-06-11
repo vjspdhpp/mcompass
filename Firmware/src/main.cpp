@@ -27,9 +27,12 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     auto workType = context.getWorkType();
     switch (deviceState) {
     case State::COMPASS: {
+      ESP_LOGI(TAG, "Current work type: %d", workType);
       // 切换罗盘工作类型
-      ESP_LOGI(TAG, "Toggle WorkType to %s",
-               workType == WorkType::SPAWN ? "SOUTH" : "SPAWN");
+      if (workType == WorkType::SPAWN) {
+        // 每次切换到指南针模式,需要将数据源设置为传感器
+        context.setSubscribeSource(Event::Source::SENSOR);
+      }
       context.toggleWorkType();
       break;
     }
@@ -58,11 +61,12 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
         }
       } else if (workType == WorkType::SOUTH) {
         // 指南针模式下， 长按切换数据源
-        ESP_LOGI(TAG, "Switch Data Source to Nether");
         if (context.getSubscribeSource() == Event::Source::SENSOR) {
           context.setSubscribeSource(Event::Source::NETHER);
+          ESP_LOGI(TAG, "Switch Data Source to NETHER");
         } else if (context.getSubscribeSource() == Event::Source::NETHER) {
           context.setSubscribeSource(Event::Source::SENSOR);
+          ESP_LOGI(TAG, "Switch Data Source to SENSOR");
         }
       }
       break;
@@ -98,22 +102,24 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
   case Event::Type::AZIMUTH: {
     // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
     // evt->azimuth.angle);
-    context.setAzimuth(evt->azimuth.angle);
     // 状态校验, 非COMPASS状态忽略方位角数据
     if (context.getDeviceState() != State::COMPASS)
       return;
     // 校验订阅数据源头, 忽略非订阅的源
     if (context.getSubscribeSource() != evt->source)
       return;
+    context.setAzimuth(evt->azimuth.angle);
     // 校验刷新频率, 限制帧率30Hz
     if (millis() - last_update < 33)
       return;
     if (context.getWorkType() == WorkType::SOUTH) {
-      ESP_LOGI(TAG, "set south color to 0x%x", context.getColor().southColor);
+      // ESP_LOGI(TAG, "set south color to 0x%x",
+      // context.getColor().southColor);
       pixel::setPointerColor(context.getColor().southColor);
       pixel::showByAzimuth(360 - evt->azimuth.angle);
     } else if (context.getWorkType() == WorkType::SPAWN) {
-      ESP_LOGI(TAG, "set spawn color to 0x%x", context.getColor().spawnColor);
+      // ESP_LOGI(TAG, "set spawn color to 0x%x",
+      // context.getColor().spawnColor);
       pixel::setPointerColor(context.getColor().spawnColor);
       // 如果当前位置无效, 则只会显示来自数据源Nether的方位角
       if (!gps::isValidGPSLocation(context.getCurrentLocation()) &&
@@ -157,7 +163,7 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
           ESP_LOGI(TAG, "Exit Info State");
           vTaskDelete(NULL);
         },
-        "calibrate", 2048, evt, 1, NULL);
+        "info", 2048, evt, 1, NULL);
   } break;
   case Event::Type::SENSOR_CALIBRATE: {
     ESP_LOGI(TAG, "SENSOR_CALIBRATE");
@@ -190,7 +196,7 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
 }
 void setup() {
   // 延时,用于一些特殊情况下能够重新烧录
-  delay(500);
+  delay(1000);
   Context &context = Context::getInstance();
   esp_event_loop_args_t loop_args = {
       .queue_size = 128,

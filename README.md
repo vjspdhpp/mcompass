@@ -16,7 +16,7 @@ Front|Bottom
 
 ## Disclaimer
 * **All Minecraft game assets are copyrighted by Microsoft**, Therefore, this project does not provide in-game compass image assets.
-    * The panel files only include the outline, with pixel blocks pre-drawn.
+    * The panel file pixel blocks have been drawn and can be directly used to place an order on the LCSC panel order.
     * The original compass model extraction images are not provided.
     * The copyright of the Standard Galactic Alphabet font used on the PCB silkscreen is unclear. If you use this project for commercial purposes, ** please remove the Standard Galactic Alphabet from the PCB backside**
 
@@ -66,6 +66,7 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
     * Quick-tap the button 4 times to display the current IP address.
 
 ### Button Actions
+* Single presses to switch between spawn and compass mode.
 * 4 quick presses: Shows IP (Web Server mode).
 * 6 quick presses: Enters sensor calibration (follow on-screen 8-figure motion).
 * 8 quick presses: Factory reset (clears all settings).
@@ -89,8 +90,6 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
 ![MakerWorld CN](./Doc/public/makerworldcn.jpg)
 
 ## PCB & Panel Files
-Temporarily using the JLCEDA Chinese version link. I will upload it to the JLCPCB English site as soon as possible.
-
 [PCB Project & Panel Files on OSHWLab](https://oshwlab.com/vjspdhpp/a-real-world-minecraft-compass) 
 
 ## References

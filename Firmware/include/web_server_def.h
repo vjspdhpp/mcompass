@@ -19,7 +19,7 @@ void endServer();
 /**
  * @brief 开启热点
  */
-void createAccessPoint(const char *ssid = "cyy-test");
+void createAccessPoint(const char *ssid = "The Lost Compass");
 
 /**
  * @brief 关闭热点

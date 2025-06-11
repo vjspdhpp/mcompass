@@ -304,6 +304,7 @@ static void apis(void) {
       int index = request->getParam("index")->value().toInt();
       if (index < 0 || index > MAX_FRAME_INDEX) {
         request->send(400, "text/plain", "index parameter invalid");
+        return;
       }
       int hexRgb = DEFAULT_POINTER_COLOR;
       if (request->getParam("color") != nullptr) {
@@ -329,7 +330,7 @@ static void apis(void) {
 void web_server::createAccessPoint(const char *ssid) {
   ESP_LOGI(TAG, "Creating WiFi access point");
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid, "12121212");
+  WiFi.softAP(ssid, "");
   // 注册WiFi事件处理回调
   ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                              &wifi_event_handler, NULL));

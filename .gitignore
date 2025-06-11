@@ -5,3 +5,4 @@ Doc/.vitepress/cache/
 Doc/node_modules/
 Firmware/.vscode/
 .idea/
+Doc/bun.lock
