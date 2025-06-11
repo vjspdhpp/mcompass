@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         model: [GPS, LITE]
-        server_mode: [BLE, WEB]
+        server_mode: [BLE, WIFI]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
