@@ -1,5 +1,5 @@
 Import("env")
-
+import os
 import subprocess
 
 firmware_version = "1.1.0"
