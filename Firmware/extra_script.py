@@ -22,6 +22,10 @@ def get_git_info():
     except:
         return "unknown", "unknown"
 
+print("==== ALL ENVIRONMENT VARIABLES ====")
+for key, value in os.environ.items():
+    print(f"{key}={value}")
+
 # 读取环境变量设置型号和服务器模式
 model = os.getenv("DEFAULT_MODEL", "GPS")          # 默认 "GPS"
 server_mode = os.getenv("DEFAULT_SERVER_MODE", "BLE")  # 默认 "BLE"
