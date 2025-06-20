@@ -48,12 +48,12 @@ jobs:
           0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
           0x10000 ./Firmware/.pio/build/airm2m_core_esp32c3/firmware.bin \
           0x210000 ./Firmware/.pio/build/airm2m_core_esp32c3/littlefs.bin \
-          -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
+          -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}.bin
       - name: Get commit hash
         id: get_commit_hash
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Upload merged firmware
         uses: actions/upload-artifact@v4
         with:
-          name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ env.COMMIT_HASH }}
-          path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
+          name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}-${{ env.COMMIT_HASH }}
+          path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}.bin
