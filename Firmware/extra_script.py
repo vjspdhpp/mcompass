@@ -46,8 +46,8 @@ env.Append(CPPDEFINES=[
     ("GIT_COMMIT", '\\"%s\\"' % commit),
     ("BUILD_VERSION", '\\"%s\\"' % firmware_version),
     ("DEFAULT_MODEL", model_enum),  # 覆盖宏定义中的默认型号
-    ("DEFAULT_SERVER_MODE", server_mode_enum)  # 新增服务器模式定义
-    ("DEFAULT_SENSOR_MODEL", sensor_model_enum)  # 新增服务器模式定义
+    ("DEFAULT_SERVER_MODE", server_mode_enum),  # 新增服务器模式定义
+    ("DEFAULT_SENSOR_MODEL", sensor_model_enum)  # 新增磁力传感器型号定义
 ])
 print(f"Model: {model}, Server Mode: {server_mode}, Sensor Model: {sensor_model}")
 print(f"Model enum: {model_enum}, Server Mode enum: {server_mode_enum}, Sensor Model enum: {sensor_model_enum}")
