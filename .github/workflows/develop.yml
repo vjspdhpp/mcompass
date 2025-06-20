@@ -12,6 +12,7 @@ jobs:
       matrix:
         model: [GPS, LITE]
         server_mode: [BLE, WIFI]
+        sensor_model: [5883P, 5883L]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -21,6 +22,7 @@ jobs:
         env:
           DEFAULT_MODEL: ${{ matrix.model }}
           DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
+          DEFAULT_SENSOR_MODEL: ${{ matrix.sensor_model }}
         with:
           environments: "airm2m_core_esp32c3" # Specify environments, e.g., "env1,env2"
           targets: ""      # Specify targets, e.g., "upload,monitor"

@@ -44,6 +44,14 @@
 #define DEFAULT_MODEL mcompass::Model::GPS
 #endif
 
+
+#define SENSOR_MODEL_QMC5883L 0 // 初代芯片,已经停产,立创也不售卖
+#define SENSOR_MODEL_QMC5883P 1 // 替代芯片
+// 默认传感器型号
+#ifndef DEFAULT_SENSOR_MODEL
+#define DEFAULT_SENSOR_MODEL SENSOR_MODEL_QMC5883P
+#endif
+
 ///////////////////// 版本信息 ///////////////////////
 #if !defined(BUILD_VERSION)
 #define BUILD_VERSION "UNKNOWN"

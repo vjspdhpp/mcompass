@@ -51,6 +51,13 @@ enum class ServerMode {
   BLE = 1,  // 蓝牙服务器
 };
 
+
+/// 传感器型号
+enum class SensorModel {
+  QMC5883L = 0,  // 初代芯片,已经停产,立创也不售卖
+  QMC5883P = 1,  // 替代芯片
+};
+
 /// @brief 上下文
 class Context {
 public:
@@ -88,6 +95,8 @@ public:
 
   bool getDetectGPS() const { return detectGPS; }
   void setDetectGPS(bool detect) { detectGPS = detect; }
+
+  int getSensorModel() const { return DEFAULT_SENSOR_MODEL; }
 
   bool getHasSensor() const { return hasSensor; }
   void setHasSensor(bool sensor) { hasSensor = sensor; }
