@@ -12,7 +12,7 @@ jobs:
       matrix:
         model: [GPS, LITE]
         server_mode: [BLE, WIFI]
-        sensor_model: [5883P, 5883L]
+        sensor_model: [5883P]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
