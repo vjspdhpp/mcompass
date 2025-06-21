@@ -5,6 +5,12 @@
 namespace mcompass {
 
 namespace preference {
+
+struct CalibrationData {
+  float offsets[3];
+  float scales[3];
+};
+
 /**
  * @brief 初始化
  */
@@ -63,6 +69,16 @@ void setCustomDeviceModel(Model model);
  * @brief 获取自定义设备型号
  */
 void getCustomDeviceModel(Model &model);
+
+/**
+ * @brief 设置校准数据
+ */
+void setCalibration(CalibrationData data);
+
+/**
+ * @brief 获取校准数据
+ */
+CalibrationData getCalibration();
 
 /**
  * @brief 设置出厂设置

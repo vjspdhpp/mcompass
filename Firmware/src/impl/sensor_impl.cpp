@@ -1,5 +1,5 @@
-#include <Arduino.h>
 #include "board.h"
+#include <Arduino.h>
 #include <math.h>
 
 using namespace mcompass;
@@ -7,15 +7,15 @@ static const char *TAG = "Compass";
 
 // 根据 DEFAULT_SENSOR_MODEL 的值来选择包含哪个驱动文件
 #if DEFAULT_SENSOR_MODEL == SENSOR_MODEL_QMC5883L
-  #include "QMC5883LCompass.h"
-  typedef QMC5883LCompass Compass; // 创建统一别名
-  #define CHIP_ID 0xFF // QMC5883L 的芯片IDx
+#include "QMC5883LCompass.h"
+typedef QMC5883LCompass Compass; // 创建统一别名
+#define CHIP_ID 0xFF             // QMC5883L 的芯片IDx
 #elif DEFAULT_SENSOR_MODEL == SENSOR_MODEL_QMC5883P
-  #include "QMC5883PCompass.h"
-  typedef QMC5883PCompass Compass; // 创建统一别名
-  #define CHIP_ID 0x80 // QMC5883P 的芯片ID
+#include "QMC5883PCompass.h"
+typedef QMC5883PCompass Compass; // 创建统一别名
+#define CHIP_ID 0x80 // QMC5883P 的芯片ID
 #else
-  #error "Invalid or unknown DEFAULT_SENSOR_MODEL specified."
+#error "Invalid or unknown DEFAULT_SENSOR_MODEL specified."
 #endif
 
 Compass qmc5883; // 创建传感器对象
@@ -46,10 +46,24 @@ void sensor::init(Context *context) {
     ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
                                       0, &event, sizeof(event), 0));
   }
+  // 还原传感器的校准数据
+  preference::CalibrationData data = preference::getCalibration();
+  if (data.offsets[0] != 0 || data.offsets[1] != 0 || data.offsets[2] != 0 ||
+      data.scales[0] != 0 || data.scales[1] != 0 || data.scales[2] != 0) {
+    ESP_LOGW(TAG, "restore CalibrationOffsets(%f, %f,%f)", data.offsets[0],
+             data.offsets[1], data.offsets[2]);
+    ESP_LOGW(TAG, "restore CalibrationScales(%f, %f,%f)", data.scales[0],
+             data.scales[1], data.scales[2]);
+    qmc5883.setCalibrationOffsets(data.offsets[0], data.offsets[1],
+                                  data.offsets[2]);
+    qmc5883.setCalibrationScales(data.scales[0], data.scales[1],
+                                 data.scales[2]);
+  }
 }
 
 void sensor::calibrate() {
-  if (!compassAvailable) return;
+  if (!compassAvailable)
+    return;
   qmc5883.calibrate();
   ESP_LOGW(TAG, "setCalibrationOffsets(%f, %f,%f)",
            qmc5883.getCalibrationOffset(0), qmc5883.getCalibrationOffset(1),
@@ -57,12 +71,15 @@ void sensor::calibrate() {
   ESP_LOGW(TAG, "setCalibrationScales(%f, %f,%f)",
            qmc5883.getCalibrationScale(0), qmc5883.getCalibrationScale(1),
            qmc5883.getCalibrationScale(2));
-  qmc5883.setCalibrationOffsets(qmc5883.getCalibrationOffset(0),
-                                qmc5883.getCalibrationOffset(1),
-                                qmc5883.getCalibrationOffset(2));
-  qmc5883.setCalibrationScales(qmc5883.getCalibrationScale(0),
-                               qmc5883.getCalibrationScale(1),
-                               qmc5883.getCalibrationScale(2));
+  preference::CalibrationData data;
+  data.offsets[0] = qmc5883.getCalibrationOffset(0);
+  data.offsets[1] = qmc5883.getCalibrationOffset(1);
+  data.offsets[2] = qmc5883.getCalibrationOffset(2);
+  data.scales[0] = qmc5883.getCalibrationScale(0);
+  data.scales[1] = qmc5883.getCalibrationScale(1);
+  data.scales[2] = qmc5883.getCalibrationScale(2);
+  preference::setCalibration(data);
+  ESP_LOGW(TAG, "Calibration data saved to preferences");
 }
 
 /**
