@@ -105,27 +105,31 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     // 状态校验, 非COMPASS状态忽略方位角数据
     if (context.getDeviceState() != State::COMPASS)
       return;
-    // 校验订阅数据源头, 忽略非订阅的源
-    if (context.getSubscribeSource() != evt->source)
-      return;
-    context.setAzimuth(evt->azimuth.angle);
     // 校验刷新频率, 限制帧率30Hz
     if (millis() - last_update < 33)
       return;
+
+    ESP_LOGI(TAG, "[?] azimuth=%d evt->source=%d", evt->azimuth.angle,
+                   evt->source);
     if (context.getWorkType() == WorkType::SOUTH) {
-      // ESP_LOGI(TAG, "set south color to 0x%x",
-      // context.getColor().southColor);
+      // 指南针模式下忽略非订阅的源,否则会受到随机数据影响
+      if (context.getSubscribeSource() != evt->source)
+        return;
+      context.setAzimuth(evt->azimuth.angle);
       pixel::setPointerColor(context.getColor().southColor);
       pixel::showByAzimuth(360 - evt->azimuth.angle);
+      ESP_LOGI(TAG, "SOUTH azimuth=%d evt->source=%d", evt->azimuth.angle,
+               evt->source);
     } else if (context.getWorkType() == WorkType::SPAWN) {
-      // ESP_LOGI(TAG, "set spawn color to 0x%x",
-      // context.getColor().spawnColor);
       pixel::setPointerColor(context.getColor().spawnColor);
       // 如果当前位置无效, 则只会显示来自数据源Nether的方位角
-      if (!gps::isValidGPSLocation(context.getCurrentLocation()) &&
-          evt->source == Event::Source::NETHER) {
-        pixel::showByAzimuth(evt->azimuth.angle);
+      if (!gps::isValidGPSLocation(context.getCurrentLocation())) {
+        if (evt->source == Event::Source::NETHER) {
+          pixel::showByAzimuth(evt->azimuth.angle);
+        }
       } else {
+        ESP_LOGI(TAG, "GPS azimuth=%d evt->source=%d", evt->azimuth.angle,
+                 evt->source);
         // 如果当前位置有效, 则显示当前位置的方位角, 计算方位角
         pixel::showFrameByLocation(context.getSpawnLocation().latitude,
                                    context.getSpawnLocation().longitude,
@@ -221,13 +225,16 @@ void setup() {
       "ServerMode:%d\n PointerColor{spawnColor:0x%x,southColor:0x%x}\n "
       "Brightness:%d\n "
       "SpawnLocation:{latitude:%.2f,longitude:%.2f}\n WiFi:%s\n Model:%s\n "
-      "HasSensor:%d\n detectGPS:%d\n "
+      "HasSensor:%d\n Sensor Model:%s\n "
+      "detectGPS:%d\n "
       "}",
       context.getServerMode(), context.getColor().spawnColor,
       context.getColor().southColor, context.getBrightness(),
       context.getSpawnLocation().latitude, context.getSpawnLocation().longitude,
       context.getSsid(), context.getModel() == Model::GPS ? "GPS" : "LITE",
-      context.getHasSensor(), context.getDetectGPS());
+      context.getHasSensor(),
+      context.getSensorModel() == 0 ? "QMC5883L" : "QMC5883P",
+      context.getDetectGPS());
 
   ESP_LOGW(TAG, "Board initialized");
 }

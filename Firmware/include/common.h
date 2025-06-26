@@ -51,6 +51,12 @@ enum class ServerMode {
   BLE = 1,  // 蓝牙服务器
 };
 
+/// 传感器型号
+enum class SensorModel {
+  QMC5883L = 0, // 初代芯片,已经停产,立创也不售卖
+  QMC5883P = 1, // 替代芯片
+};
+
 /// @brief 上下文
 class Context {
 public:
@@ -89,6 +95,8 @@ public:
   bool getDetectGPS() const { return detectGPS; }
   void setDetectGPS(bool detect) { detectGPS = detect; }
 
+  int getSensorModel() const { return DEFAULT_SENSOR_MODEL; }
+
   bool getHasSensor() const { return hasSensor; }
   void setHasSensor(bool sensor) { hasSensor = sensor; }
 
@@ -125,6 +133,7 @@ public:
   int getLastAzimuth() const { return lastAzimuth; }
   void setLastAzimuth(int azi) { lastAzimuth = azi; }
 
+
   esp_event_loop_handle_t getEventLoop() { return eventLoop; }
 
   void setEventLoop(esp_event_loop_handle_t loop) { eventLoop = loop; }
@@ -147,6 +156,7 @@ private:
   // 默认目标位置设置为天安门经纬度（示例值）
   Location spawnLocation{39.908692f, 116.397477f};
   ServerMode serverMode = DEFAULT_SERVER_MODE;
+  uint8_t sensorModel = DEFAULT_SENSOR_MODEL; // 传感器型号
   uint8_t brightness = DEFAULT_BRIGHTNESS;
   String ssid = "";
   String password = "";

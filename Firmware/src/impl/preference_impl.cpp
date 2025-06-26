@@ -32,7 +32,9 @@ void preference::init(Context *context) {
   ctx->setSsid(tempSsid);
   ctx->setPassword(tempPassword);
   ctx->setModel(tempDeviceModel);
-  ctx->setWorkType(tempDeviceModel == Model::GPS ? WorkType::SPAWN : WorkType::SOUTH);
+  ctx->setWorkType(tempDeviceModel == Model::GPS ? WorkType::SPAWN
+                                                 : WorkType::SOUTH);
+  ctx->setCurrentLocation({-1000.0f, -1000.0f});
 }
 
 void preference::saveSpawnLocation(Location location) {
@@ -169,4 +171,31 @@ void preference::getCustomDeviceModel(Model &model) {
   model = static_cast<Model>(
       preferences.getInt(MODEL_KEY, static_cast<int>(DEFAULT_MODEL)));
   preferences.end();
+}
+
+/**
+ * @brief 设置校准数据
+ */
+void preference::setCalibration(preference::CalibrationData data) {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  preferences.putBytes(CALIBRATION_KEY, &data, sizeof(preference::CalibrationData));
+  preferences.end();
+}
+
+/**
+ * @brief 获取校准数据
+ */
+preference::CalibrationData preference::getCalibration() {
+  Preferences preferences;
+  preferences.begin(PREFERENCE_NAME, false);
+  preference::CalibrationData data = {0}; 
+  if (!preferences.isKey(CALIBRATION_KEY)) {
+    ESP_LOGE(TAG, "!CALIBRATION_KEY");
+    preferences.end();
+    return data;
+  }
+  preferences.getBytes(CALIBRATION_KEY, &data, sizeof(preference::CalibrationData));
+  preferences.end();
+  return data;
 }

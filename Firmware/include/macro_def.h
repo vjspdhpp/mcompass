@@ -41,7 +41,15 @@
 
 // 默认型号
 #ifndef DEFAULT_MODEL
-#define DEFAULT_MODEL mcompass::Model::GPS
+#define DEFAULT_MODEL mcompass::Model::LITE
+#endif
+
+
+#define SENSOR_MODEL_QMC5883L 0 // 初代芯片,已经停产,立创也不售卖
+#define SENSOR_MODEL_QMC5883P 1 // 替代芯片
+// 默认传感器型号
+#ifndef DEFAULT_SENSOR_MODEL
+#define DEFAULT_SENSOR_MODEL SENSOR_MODEL_QMC5883P
 #endif
 
 ///////////////////// 版本信息 ///////////////////////
@@ -90,15 +98,16 @@
 ///////////////////// 配置相关 ///////////////////////
 #define PREFERENCE_NAME "mcompass" // 配置文件名称
 
-#define LATITUDE_KEY "latitude"       // 纬度Key
-#define LONGTITUDE_KEY "longitude"    // 经度Key
-#define SPAWN_COLOR_KEY "spawn_color" // 出生针颜色
-#define SOUTH_COLOR_KEY "south_color" // 指南针颜色
-#define SERVER_MODE_KEY "server_mode" // 配置模式
-#define WIFI_SSID_KEY "SSID"          // WiFi账号
-#define WIFI_PWD_KEY "PWD"            // WiFi账号
-#define BRIGHTNESS_KEY "brightness"   // 亮度
-#define MODEL_KEY "model_key"         // 型号
+#define LATITUDE_KEY "latitude"           // 纬度Key
+#define LONGTITUDE_KEY "longitude"        // 经度Key
+#define SPAWN_COLOR_KEY "spawn_color"     // 出生针颜色
+#define SOUTH_COLOR_KEY "south_color"     // 指南针颜色
+#define SERVER_MODE_KEY "server_mode"     // 配置模式
+#define WIFI_SSID_KEY "SSID"              // WiFi账号
+#define WIFI_PWD_KEY "PWD"                // WiFi账号
+#define BRIGHTNESS_KEY "brightness"       // 亮度
+#define MODEL_KEY "model_key"             // 型号
+#define CALIBRATION_KEY "calibration_key" // 校准数据
 
 ///////////////////// 错误信息 ///////////////////////
 #define SENSOR_ERROR "Sensor Error 100"           // 传感器错误
