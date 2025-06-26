@@ -25,14 +25,19 @@ Front|Bottom
 ### For Non-Compilers
 The repository includes GitHub Actions.You can download pre-built firmware from the latest successful "Build Firmware Workflow" run under[Actions](https://github.com/chaosgoo/mcompass/actions)
 
-Four files are available at the bottom of the workflow page. Choose one based on your needs—they differ only in default configurations. WiFi/Bluetooth modes can be switched later via web/BLE.
+Eight files are available at the bottom of the workflow page. Choose one based on your geomagnetic sensor model and needs. WiFi/Bluetooth modes can be switched later via web/BLE.
 
 File Name|Description
 -|-
-mcompass-639b762-LITE-BLE.bin | Standard version, BLE mode (configure via Mini Program)
-mcompass-639b762-GPS-BLE.bin | GPS version, BLE mode (configure via Mini Program)
-mcompass-639b762-LITE-WIFI.bin | Standard version, WiFi mode (configure via web)
-mcompass-639b762-GPS-WIFI.bin | GPS version, WiFi mode (configure via web)
+mcompass-GPS-BLE-5883L-f19c2a6.bin | GPS version, BLE mode (configure via Mini Program), QMC5883L sensor
+mcompass-GPS-BLE-5883P-f19c2a6.bin | GPS version, BLE mode (configure via Mini Program), QMC5883P sensor
+mcompass-GPS-WIFI-5883L-f19c2a6.bin | GPS version, WiFi mode (configure via web), QMC5883L sensor
+mcompass-GPS-WIFI-5883P-f19c2a6.bin | GPS version, WiFi mode (configure via web), QMC5883P sensor
+mcompass-LITE-BLE-5883L-f19c2a6.bin | Standard version, BLE mode (configure via web), QMC5883L sensor
+mcompass-LITE-BLE-5883P-f19c2a6.bin | Standard version, BLE mode (configure via web), QMC5883P sensor
+mcompass-LITE-WIFI-5883L-f19c2a6.bin | Standard version, WiFi mode (configure via web), QMC5883L sensor
+mcompass-LITE-WIFI-5883P-f19c2a6.bin | Standard version, WiFi mode (configure via web), QMC5883P sensor
+
 
 After downloading, extract **mcompass.bin** and flash it to an **ESP32C3** using **Flash Download Tool**(select USB mode).
 
@@ -80,7 +85,7 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
 * PCB: 1.0mm thickness, black solder mask (JLCPCB).
 * Panel: 1.0mm semi-transparent black acrylic (JLCPCB Shopping), glued post-production.
 * Diffuser: PET LGT075J (glued).
-* LED: WS2812B 0807
+* LED: WS2812B 0807 (1.7x2.0x0.85mm)
 * Battery: 213455 500mAh.
 * Hardware: M2×3×3.2 knurled nut, M2×4 hex screw.
 * GPS: ATGM336H 5N71 module + antenna (13.1mm × 15.7mm).

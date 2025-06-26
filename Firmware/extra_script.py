@@ -27,7 +27,7 @@ for key, value in os.environ.items():
     print(f"{key}={value}")
 
 # 读取环境变量设置型号和服务器模式
-model = os.getenv("DEFAULT_MODEL", "LITE")          # 默认 "GPS"
+model = os.getenv("DEFAULT_MODEL", "LITE")          # 默认 "LITE"
 server_mode = os.getenv("DEFAULT_SERVER_MODE", "BLE")  # 默认 "BLE"
 sensor_model = os.getenv("DEFAULT_SENSOR_MODEL", "5883P")  # 默认 "5883P"
 

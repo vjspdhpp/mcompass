@@ -45,6 +45,7 @@ void sensor::init(Context *context) {
     memcpy(event.TEXT.text, SENSOR_ERROR, sizeof(SENSOR_ERROR));
     ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
                                       0, &event, sizeof(event), 0));
+    return;
   }
   // 还原传感器的校准数据
   preference::CalibrationData data = preference::getCalibration();

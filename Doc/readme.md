@@ -16,14 +16,18 @@ nextPage: /api
 ### 不会编译
 仓库已添加Github Actions, 可以直接点击[Actions](https://github.com/chaosgoo/mcompass/actions)找到最近一次的"Build Firmware Workflow"构建成功的记录,
 
-点击后的页面下方有四个文件, 按需下载一个即可, 除了默认配置不同外, 其余没有区别;
+点击后的页面下方有八个文件, 根据地磁传感器型号和自身需求下载一个即可.
 使用WiFi配置还是蓝牙配置, 后续仍可通过网页/蓝牙切换.
 名称|描述
 -|-
-mcompass-639b762-LITE-BLE.bin |标准版, 蓝牙模式, 使用小程序配置
-mcompass-639b762-GPS-BLE.bin | GPS版, 蓝牙模式, 使用小程序配置
-mcompass-639b762-LITE-WIFI.bin | 标准版, WiFi模式, 使用网页配置
-mcompass-639b762-GPS-WIFI.bin | GPS版, WiFi模式, 使用网页配置
+mcompass-GPS-BLE-5883L-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883L
+mcompass-GPS-BLE-5883P-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883P
+mcompass-GPS-WIFI-5883L-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883L
+mcompass-GPS-WIFI-5883P-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883P
+mcompass-LITE-BLE-5883L-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883L
+mcompass-LITE-BLE-5883P-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883P
+mcompass-LITE-WIFI-5883L-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883L
+mcompass-LITE-WIFI-5883P-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883P
 
 下载后解压文件得到**mcompass.bin**文件使用**Flash Download Tool**选择ESP32C3->USB下载固件.
 
@@ -55,6 +59,7 @@ WiFi模式自带的服务端使用next.js开发, 安装好node.js后,进入Serve
     * 不管是热点模式还是连接到WiFi, 快速点按按钮四次,会显示当前设备的IP地址;
 
 ### 按钮
+* 单击一下切换出生针和指南针模式
 * 连续快速按下按钮四次
     * WEB服务器模式下,会显示当前设备的IP地址;
 * 连续快速按下按钮六次, 会进入传感器校准模式, 此时会显示数字倒计时,倒计时结束,拿起罗盘在控制画8字,并尽可能让装置在各个方向上旋转;
