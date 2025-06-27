@@ -1,4 +1,7 @@
 # A Real-World Minecraft Compass
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20our%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/PFBXxeKNFy)
+
 - [English](README.md)
 - [中文](README.zh-CN.md)
 
