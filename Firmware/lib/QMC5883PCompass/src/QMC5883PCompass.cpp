@@ -355,7 +355,7 @@ int QMC5883PCompass::_get(int i) {
 int QMC5883PCompass::getAzimuth() {
   float heading = atan2(getY(), getX()) * 180.0 / PI;
   heading += _magneticDeclinationDegrees;
-  return (int)heading % 360;
+  return -1 * (int)heading % 360;
 }
 
 /**
