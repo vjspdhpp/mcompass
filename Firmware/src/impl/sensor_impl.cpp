@@ -103,12 +103,11 @@ int sensor::getAzimuth() {
   azimuth %= 360;
 #endif
 
-// QMC5883P的坐标系和QMC5883L不同,需要进行调整
- 
-  azimuth = azimuth + 90;
-  if (azimuth > 360) {
-    azimuth -= 360;
-  }
+  // QMC5883P的坐标系和QMC5883L不同,需要进行调整
+  // azimuth = azimuth + 90;
+  // if (azimuth > 360) {
+  //   azimuth -= 360;
+  // }
  
 
   return azimuth;
