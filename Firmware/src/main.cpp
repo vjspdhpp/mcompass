@@ -98,7 +98,7 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
           // 重启
           esp_restart();
         },
-        "factory_reset", 2048, &context, 1, NULL);
+        "factory_reset", 4096, &context, 1, NULL);
   } break;
   case Event::Type::AZIMUTH: {
     // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
@@ -201,9 +201,9 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
           sensor::calibrate();
           context->setDeviceState(State::COMPASS);
           ESP_LOGW(TAG, "Calibrate Done.");
-          vTaskDelete(NULL);
+          esp_restart();
         },
-        "calibrate", 2048, &context, configMAX_PRIORITIES - 1, NULL);
+        "calibrate", 8192, &context, configMAX_PRIORITIES - 1, NULL);
   } break;
   default:
     break;

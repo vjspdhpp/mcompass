@@ -2,7 +2,8 @@
 ===============================================================================================================
 QMC5883PCompass.cpp
 Library for using QMC5883P series chip boards as a compass.
-This is a modified version of the QMC5883LCompass library to support the QMC5883P chip.
+This is a modified version of the QMC5883LCompass library to support the
+QMC5883P chip.
 
 Learn more at [https://github.com/mprograms/QMC5883LCompass]
 
@@ -48,7 +49,7 @@ OVER SAMPLE RATIO 1 (OSR1)
         4         	    0x10 (0b010000)
         2         	    0x20 (0b100000)
         1          	    0x30 (0b110000)
-        
+
 -- REGISTER 0x0B --
 FULL SCALE (RNG)
         2G          	0x0C (0b1100)
@@ -71,22 +72,24 @@ QMC5883PCompass::QMC5883PCompass() {}
 
 /**
         INIT
-        Initialize Chip - This needs to be called in the sketch setup() function.
-        This sequence is changed for the QMC5883P chip.
+        Initialize Chip - This needs to be called in the sketch setup()
+function. This sequence is changed for the QMC5883P chip.
 **/
 void QMC5883PCompass::init() {
   Wire.begin();
-  
+
   // Register 0B: Set Range to 8G (0x08) and SET/RESET mode to 'on' (0x01)
   _writeReg(0x0B, 0x08 | 0x01);
-  
-  // Register 0A: Set Mode to Continuous (0x03), ODR to 200Hz (0x0C), OSR1 to 8 (0x00)
+
+  // Register 0A: Set Mode to Continuous (0x03), ODR to 200Hz (0x0C), OSR1 to 8
+  // (0x00)
   _writeReg(0x0A, 0x03 | 0x0C | 0x00);
 }
 
 /**
         SET ADDRESS
-        Set the I2C Address of the chip. This needs to be called in the sketch setup() function.
+        Set the I2C Address of the chip. This needs to be called in the sketch
+setup() function.
 **/
 void QMC5883PCompass::setADDR(byte b) { _ADDR = b; }
 
@@ -118,10 +121,10 @@ void QMC5883PCompass::_writeReg(byte r, byte v) {
 /**
         CHIP MODE
         Set the chip mode.
-        This function is rewritten for QMC5883P as settings are in two registers.
-        Note: The values for rng and osr parameters are different from the QMC5883L version.
-              See the comment block at the top of this file.
-              This function also hard-codes SET/RESET mode to 'on'.
+        This function is rewritten for QMC5883P as settings are in two
+registers. Note: The values for rng and osr parameters are different from the
+QMC5883L version. See the comment block at the top of this file. This function
+also hard-codes SET/RESET mode to 'on'.
 **/
 void QMC5883PCompass::setMode(byte mode, byte odr, byte rng, byte osr) {
   byte regA_val = mode | odr | osr;
@@ -144,9 +147,7 @@ void QMC5883PCompass::setMagneticDeclination(int degrees, uint8_t minutes) {
         Reset the chip.
         Changed register from 0x0A to 0x0B.
 **/
-void QMC5883PCompass::setReset() { 
-    _writeReg(0x0B, 0x80); 
-}
+void QMC5883PCompass::setReset() { _writeReg(0x0B, 0x80); }
 
 // 1 = Basic 2 = Advanced. (No change in logic)
 void QMC5883PCompass::setSmoothing(byte steps, bool adv) {
@@ -158,9 +159,10 @@ void QMC5883PCompass::setSmoothing(byte steps, bool adv) {
 // (No change in logic)
 void QMC5883PCompass::calibrate() {
   clearCalibration();
+  Serial.println("Calibrating QMC5883P...clearCalibration");
   long calibrationData[3][2] = {
       {65000, -65000}, {65000, -65000}, {65000, -65000}};
-  
+
   // Prime the values
   read();
   long x = calibrationData[0][0] = calibrationData[0][1] = getX();
@@ -171,6 +173,7 @@ void QMC5883PCompass::calibrate() {
 
   while ((millis() - startTime) < 10000) {
     read();
+    Serial.println("Calibrating QMC5883P...loop");
 
     x = getX();
     y = getY();
@@ -227,6 +230,14 @@ void QMC5883PCompass::setCalibrationOffsets(float x_offset, float y_offset,
   _offset[0] = x_offset;
   _offset[1] = y_offset;
   _offset[2] = z_offset;
+  Serial.print("Calibration Offsets: ");
+  Serial.print("X: ");
+  Serial.print(_offset[0]);
+  Serial.print(", Y: ");
+  Serial.print(_offset[1]);
+  Serial.print(", Z: ");
+  Serial.println(_offset[2]);
+  Serial.flush(); // Ensure all data is sent before proceeding
 }
 
 // (No change in logic)
@@ -235,6 +246,14 @@ void QMC5883PCompass::setCalibrationScales(float x_scale, float y_scale,
   _scale[0] = x_scale;
   _scale[1] = y_scale;
   _scale[2] = z_scale;
+  Serial.print("Calibration Scales: ");
+  Serial.print("X: ");
+  Serial.print(_scale[0]);
+  Serial.print(", Y: ");
+  Serial.print(_scale[1]);
+  Serial.print(", Z: ");
+  Serial.println(_scale[2]);
+  Serial.flush(); // Ensure all data is sent before proceeding
 }
 
 // (No change in logic)

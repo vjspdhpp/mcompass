@@ -23,7 +23,16 @@ public:
     _qmc5883l->setMode(mode, odr, rng, osr);
   }
 
-  void calibrate() override { _qmc5883l->calibrate(); }
+  void calibrate() override {
+    _qmc5883l->calibrate();
+    // update local calibration data
+    setCalibrationOffsets(_qmc5883l->getCalibrationOffset(0),
+                          _qmc5883l->getCalibrationOffset(1),
+                          _qmc5883l->getCalibrationOffset(2));
+    setCalibrationScales(_qmc5883l->getCalibrationScale(0),
+                         _qmc5883l->getCalibrationScale(1),
+                         _qmc5883l->getCalibrationScale(2));
+  }
 
   void setReset() override { _qmc5883l->setReset(); }
 

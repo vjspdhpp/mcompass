@@ -5,6 +5,7 @@
 #include "MagneticSensor.h"
 #include "QMC5883LAdapter.h"
 #include "QMC5883PAdapter.h"
+#include "MMC5883MAAdapter.h"
 
 using namespace mcompass;
 static const char *TAG = "SENSOR";
@@ -36,6 +37,7 @@ void sensor::init(Context *context) {
   if (Wire.endTransmission() == 0) {
     ESP_LOGI(TAG, "Found MMC5883MA at address 0x30");
     sm = SensorModel::MMC5883MA;
+    magneticSensor = new MMC5883MAAdapter();
   }
 
   // 进行一次全量I2C扫描
@@ -127,6 +129,7 @@ int sensor::getAzimuth() {
     if (azimuth >= 360) {
       azimuth -= 360;
     }
+    break;
   }
   case SensorModel::QMC5883L: {
     azimuth = 360 - azimuth; // 将方位角转换为0-360度范围
