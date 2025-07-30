@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "common.h"
 #include "macro_def.h"
 #include "utils.h"
-
 std::string utils::toHexString(int spawnColor) {
   // 提取RGB分量
   int red = (spawnColor >> 16) & 0xFF;
@@ -39,7 +39,7 @@ int utils::fromHexString(const std::string &hexColor) {
   // 将字符串解析为整数
   unsigned int colorValue;
   std::stringstream ss;
-  ss << std::hex << hex;  // 将 16 进制字符串转换为整数
+  ss << std::hex << hex; // 将 16 进制字符串转换为整数
   ss >> colorValue;
 
   return static_cast<int>(colorValue);
@@ -89,24 +89,24 @@ double utils::calculateBearing(double lat1, double lon1, double lat2,
   double x = atan2(fabs(numerator), fabs(denominator));
   double result = x;
 
-  if (lon2 > lon1) {  // 右半球
-    if (lat2 > lat1)  // 第一象限
+  if (lon2 > lon1) { // 右半球
+    if (lat2 > lat1) // 第一象限
       result = x;
-    else if (lat2 < lat1)  // 第四象限
+    else if (lat2 < lat1) // 第四象限
       result = PI - x;
     else
-      result = PI / 2;       // x轴正方向
-  } else if (lon2 < lon1) {  // 左半球
-    if (lat2 > lat1)         // 第二象限
+      result = PI / 2;      // x轴正方向
+  } else if (lon2 < lon1) { // 左半球
+    if (lat2 > lat1)        // 第二象限
       result = 2 * PI - x;
-    else if (lat2 < lat1)  // 第三象限
+    else if (lat2 < lat1) // 第三象限
       result = PI + x;
     else
-      result = 3 * PI / 2;  // x轴负方向
-  } else {                  // 相同经度
-    if (lat2 > lat1)        // y轴正方向
+      result = 3 * PI / 2; // x轴负方向
+  } else {                 // 相同经度
+    if (lat2 > lat1)       // y轴正方向
       result = 0;
-    else if (lat2 < lat1)  // y轴负方向
+    else if (lat2 < lat1) // y轴负方向
       result = PI;
     else {
       ESP_LOGW("Utils", "Warning Arriving at the destination Arriving.");
@@ -139,4 +139,38 @@ double utils::simplifiedDistance(double lat1, double lon1, double lat2,
   double disLon = EARTH_RADIUS * toRadians(lat1 - lat2);
 
   return sqrt(disLat * disLat + disLon * disLon);
+}
+
+std::string utils::workType2Str(mcompass::WorkType workType) {
+  std::string workTypeStr;
+  switch (workType) {
+  case mcompass::WorkType::SPAWN:
+    workTypeStr = "Spawn";
+    break;
+  case mcompass::WorkType::SOUTH:
+    workTypeStr = "South";
+    break;
+  default:
+    workTypeStr = "Unknown";
+    break;
+  }
+  return workTypeStr.c_str();
+}
+
+std::string utils::sensorModel2Str(mcompass::SensorModel model) {
+  std::string sensorModel2Str;
+  switch (model) {
+  case mcompass::SensorModel::QMC5883L:
+    sensorModel2Str = "QMC5883L";
+    break;
+  case mcompass::SensorModel::QMC5883P:
+    sensorModel2Str = "QMC5883P";
+    break;
+  case mcompass::SensorModel::MMC5883MA:
+    sensorModel2Str = "MMC5883MA";
+    break;
+  default:
+    sensorModel2Str = "Unknown";
+  }
+  return sensorModel2Str;
 }

@@ -2,6 +2,12 @@
 
 #include <string>
 #include <vector>
+
+namespace mcompass {
+    enum class WorkType;
+    enum class SensorModel;
+};
+
 namespace utils {
 
 /**
@@ -41,4 +47,7 @@ double calculateBearing(double lat1, double lon1, double lat2, double lon2);
 double complexDistance(double lat1, double lon1, double lat2, double lon2);
 
 double simplifiedDistance(double lat1, double lon1, double lat2, double lon2);
+
+std::string workType2Str(mcompass::WorkType type);
+std::string sensorModel2Str(mcompass::SensorModel model);
 }  // namespace utils

@@ -53,8 +53,11 @@ enum class ServerMode {
 
 /// 传感器型号
 enum class SensorModel {
-  QMC5883L = 0, // 初代芯片,已经停产,立创也不售卖
-  QMC5883P = 1, // 替代芯片
+  UNKNOWN = -1,  // 未知, 说明没有适配,
+  QMC5883L = 0,  // 初代芯片,已经停产,立创也不售卖
+  QMC5883P = 1,  // 替代芯片QMC5883P
+  MMC5883MA = 2, // 替代芯片MMC5883MA, 有人反馈买QMC5883P,但是收到了MMC5883MA,
+                 // 好在他们引脚兼容
 };
 
 /// @brief 上下文
@@ -95,7 +98,8 @@ public:
   bool getDetectGPS() const { return detectGPS; }
   void setDetectGPS(bool detect) { detectGPS = detect; }
 
-  int getSensorModel() const { return DEFAULT_SENSOR_MODEL; }
+  SensorModel getSensorModel() const { return sensorModel; }
+  void setSensorModel(SensorModel sm) { sensorModel = sm; }
 
   bool getHasSensor() const { return hasSensor; }
   void setHasSensor(bool sensor) { hasSensor = sensor; }
@@ -133,7 +137,6 @@ public:
   int getLastAzimuth() const { return lastAzimuth; }
   void setLastAzimuth(int azi) { lastAzimuth = azi; }
 
-
   esp_event_loop_handle_t getEventLoop() { return eventLoop; }
 
   void setEventLoop(esp_event_loop_handle_t loop) { eventLoop = loop; }
@@ -150,13 +153,13 @@ private:
   // 根据 model 判断默认的工作类型
   WorkType workType = (model == Model::GPS ? WorkType::SPAWN : WorkType::SOUTH);
   bool detectGPS = false;
-  bool hasSensor = false;
+  bool hasSensor = true;
   PointerColor color;  // 默认构造，具体初值请根据需求设置
   Location currentLoc; // 当前位置，初值默认构造
   // 默认目标位置设置为天安门经纬度（示例值）
   Location spawnLocation{39.908692f, 116.397477f};
   ServerMode serverMode = DEFAULT_SERVER_MODE;
-  uint8_t sensorModel = DEFAULT_SENSOR_MODEL; // 传感器型号
+  SensorModel sensorModel = SensorModel::QMC5883L; // 传感器型号
   uint8_t brightness = DEFAULT_BRIGHTNESS;
   String ssid = "";
   String password = "";

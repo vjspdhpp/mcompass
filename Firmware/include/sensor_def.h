@@ -15,7 +15,7 @@ void calibrate();
 int getAzimuth();
 
 /**
- * @brief comass可用
+ * @brief 传感器可用状态
  */
 bool available();
 
@@ -24,6 +24,6 @@ bool available();
  */
 void init(Context *context);
 
-}  // namespace sensor
+} // namespace sensor
 
-}  // namespace mcompass
+} // namespace mcompass
