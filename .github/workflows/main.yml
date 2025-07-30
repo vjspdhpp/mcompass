@@ -12,7 +12,6 @@ jobs:
       matrix:
         model: [GPS, LITE]
         server_mode: [BLE, WIFI]
-        sensor_model: [5883P, 5883L]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -22,7 +21,6 @@ jobs:
         env:
           DEFAULT_MODEL: ${{ matrix.model }}
           DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
-          DEFAULT_SENSOR_MODEL: ${{ matrix.sensor_model }}
         with:
           environments: "airm2m_core_esp32c3" # Specify environments, e.g., "env1,env2"
           targets: ""      # Specify targets, e.g., "upload,monitor"
@@ -48,12 +46,12 @@ jobs:
           0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
           0x10000 ./Firmware/.pio/build/airm2m_core_esp32c3/firmware.bin \
           0x210000 ./Firmware/.pio/build/airm2m_core_esp32c3/littlefs.bin \
-          -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}.bin
+          -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
       - name: Get commit hash
         id: get_commit_hash
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Upload merged firmware
         uses: actions/upload-artifact@v4
         with:
-          name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}-${{ env.COMMIT_HASH }}
-          path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ matrix.sensor_model }}.bin
+          name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ env.COMMIT_HASH }}
+          path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
