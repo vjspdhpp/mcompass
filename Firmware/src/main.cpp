@@ -27,13 +27,14 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     auto workType = context.getWorkType();
     switch (deviceState) {
     case State::COMPASS: {
-      ESP_LOGI(TAG, "Current work type: %d", workType);
       // 切换罗盘工作类型
       if (workType == WorkType::SPAWN) {
         // 每次切换到指南针模式,需要将数据源设置为传感器
         context.setSubscribeSource(Event::Source::SENSOR);
       }
       context.toggleWorkType();
+      ESP_LOGI(TAG, "Current work type: %s",
+               utils::workType2Str(context.getWorkType()).c_str());
       break;
     }
     default:
@@ -97,7 +98,7 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
           // 重启
           esp_restart();
         },
-        "factory_reset", 2048, &context, 1, NULL);
+        "factory_reset", 4096, &context, 1, NULL);
   } break;
   case Event::Type::AZIMUTH: {
     // ESP_LOGI(TAG, "evt->azimuth.angle=%d",
@@ -108,35 +109,45 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
     // 校验刷新频率, 限制帧率30Hz
     if (millis() - last_update < 33)
       return;
-
-    ESP_LOGI(TAG, "[?] azimuth=%d evt->source=%d", evt->azimuth.angle,
-                   evt->source);
-    if (context.getWorkType() == WorkType::SOUTH) {
-      // 指南针模式下忽略非订阅的源,否则会受到随机数据影响
-      if (context.getSubscribeSource() != evt->source)
-        return;
-      context.setAzimuth(evt->azimuth.angle);
-      pixel::setPointerColor(context.getColor().southColor);
-      pixel::showByAzimuth(360 - evt->azimuth.angle);
-      ESP_LOGI(TAG, "SOUTH azimuth=%d evt->source=%d", evt->azimuth.angle,
-               evt->source);
-    } else if (context.getWorkType() == WorkType::SPAWN) {
+    switch (context.getWorkType()) {
+    case WorkType::SPAWN: {
       pixel::setPointerColor(context.getColor().spawnColor);
-      // 如果当前位置无效, 则只会显示来自数据源Nether的方位角
+      // 当前位置无效, 显示来自Nether的方位角
       if (!gps::isValidGPSLocation(context.getCurrentLocation())) {
+        ESP_LOGI(TAG, "GPS azimuth=%d evt->source=%d", evt->azimuth.angle,
+                 evt->source);
         if (evt->source == Event::Source::NETHER) {
           pixel::showByAzimuth(evt->azimuth.angle);
         }
       } else {
-        ESP_LOGI(TAG, "GPS azimuth=%d evt->source=%d", evt->azimuth.angle,
-                 evt->source);
-        // 如果当前位置有效, 则显示当前位置的方位角, 计算方位角
+
+        // 当前位置有效, 显示计算目标位置方位角
         pixel::showFrameByLocation(context.getSpawnLocation().latitude,
                                    context.getSpawnLocation().longitude,
                                    context.getCurrentLocation().latitude,
                                    context.getCurrentLocation().longitude,
                                    evt->azimuth.angle);
       }
+      break;
+    }
+    case WorkType::SOUTH: {
+      static int lastAzimuth = 0;
+      // 指南针模式下忽略非订阅的源,否则会受到随机数据影响
+      if (context.getSubscribeSource() != evt->source)
+        return;
+      context.setAzimuth(evt->azimuth.angle);
+      pixel::setPointerColor(context.getColor().southColor);
+      pixel::showByAzimuth(evt->azimuth.angle);
+      // 减少日志打印
+      if (lastAzimuth != evt->azimuth.angle) {
+        ESP_LOGI(TAG, "SOUTH azimuth=%d evt->source=%d", evt->azimuth.angle,
+                 evt->source);
+        lastAzimuth = evt->azimuth.angle;
+      }
+      break;
+    }
+    default:
+      break;
     }
     last_update = millis();
   } break;
@@ -190,9 +201,9 @@ void dispatcher(void *handler_arg, esp_event_base_t base, int32_t id,
           sensor::calibrate();
           context->setDeviceState(State::COMPASS);
           ESP_LOGW(TAG, "Calibrate Done.");
-          vTaskDelete(NULL);
+          esp_restart();
         },
-        "calibrate", 2048, &context, configMAX_PRIORITIES - 1, NULL);
+        "calibrate", 8192, &context, configMAX_PRIORITIES - 1, NULL);
   } break;
   default:
     break;
@@ -233,7 +244,7 @@ void setup() {
       context.getSpawnLocation().latitude, context.getSpawnLocation().longitude,
       context.getSsid(), context.getModel() == Model::GPS ? "GPS" : "LITE",
       context.getHasSensor(),
-      context.getSensorModel() == 0 ? "QMC5883L" : "QMC5883P",
+      utils::sensorModel2Str(context.getSensorModel()).c_str(),
       context.getDetectGPS());
 
   ESP_LOGW(TAG, "Board initialized");

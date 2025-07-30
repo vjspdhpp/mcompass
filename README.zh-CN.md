@@ -27,14 +27,10 @@ Front|Bottom
 使用WiFi配置还是蓝牙配置, 后续仍可通过网页/蓝牙切换.
 名称|描述
 -|-
-mcompass-GPS-BLE-5883L-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883L
-mcompass-GPS-BLE-5883P-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883P
-mcompass-GPS-WIFI-5883L-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883L
-mcompass-GPS-WIFI-5883P-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883P
-mcompass-LITE-BLE-5883L-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883L
-mcompass-LITE-BLE-5883P-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883P
-mcompass-LITE-WIFI-5883L-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883L
-mcompass-LITE-WIFI-5883P-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883P
+mcompass-GPS-BLE-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置
+mcompass-GPS-WIFI-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置
+mcompass-LITE-BLE-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置
+mcompass-LITE-WIFI-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置
 
 下载后解压文件得到**mcompass.bin**文件使用**Flash Download Tool**选择ESP32C3->USB下载固件.
 
@@ -83,8 +79,8 @@ WiFi模式自带的服务端使用next.js开发, 安装好node.js后,进入Serve
 * 匀光材料选择PET LGT075J, 无需背胶, 后续借助胶水胶合;
 * 灯珠: WS2812B 0807 (1.7x2.0x0.85mm)
 * 电池参数 213455 500MAH
-* 滚花螺母 M2*3*3.2
-* 螺丝 M2*4 内六角
+* 滚花螺母 M2x3x3.2
+* 螺丝 M2x4 内六角
 * GPS ATGM336H 5N71模块+天线, 尺寸13.1mmx15.7mm
 
 ## 模型

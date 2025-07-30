@@ -20,14 +20,10 @@ nextPage: /api
 使用WiFi配置还是蓝牙配置, 后续仍可通过网页/蓝牙切换.
 名称|描述
 -|-
-mcompass-GPS-BLE-5883L-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883L
-mcompass-GPS-BLE-5883P-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置, 传感器是QMC5883P
-mcompass-GPS-WIFI-5883L-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883L
-mcompass-GPS-WIFI-5883P-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置, 传感器是QMC5883P
-mcompass-LITE-BLE-5883L-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883L
-mcompass-LITE-BLE-5883P-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置, 传感器是QMC5883P
-mcompass-LITE-WIFI-5883L-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883L
-mcompass-LITE-WIFI-5883P-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置, 传感器是QMC5883P
+mcompass-GPS-BLE-f19c2a6.bin |GPS版, 蓝牙模式, 使用小程序配置
+mcompass-GPS-WIFI-f19c2a6.bin | GPS版, WiFi模式, 使用小程序配置
+mcompass-LITE-BLE-f19c2a6.bin | 标准版, 蓝牙模式, 使用网页配置
+mcompass-LITE-WIFI-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置
 
 下载后解压文件得到**mcompass.bin**文件使用**Flash Download Tool**选择ESP32C3->USB下载固件.
 
