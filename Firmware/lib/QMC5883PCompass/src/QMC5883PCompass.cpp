@@ -173,7 +173,6 @@ void QMC5883PCompass::calibrate() {
 
   while ((millis() - startTime) < 10000) {
     read();
-    Serial.println("Calibrating QMC5883P...loop");
 
     x = getX();
     y = getY();
