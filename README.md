@@ -30,14 +30,10 @@ Eight files are available at the bottom of the workflow page. Choose one based o
 
 File Name|Description
 -|-
-mcompass-GPS-BLE-5883L-f19c2a6.bin | GPS version, BLE mode (configure via Mini Program), QMC5883L sensor
-mcompass-GPS-BLE-5883P-f19c2a6.bin | GPS version, BLE mode (configure via Mini Program), QMC5883P sensor
-mcompass-GPS-WIFI-5883L-f19c2a6.bin | GPS version, WiFi mode (configure via web), QMC5883L sensor
-mcompass-GPS-WIFI-5883P-f19c2a6.bin | GPS version, WiFi mode (configure via web), QMC5883P sensor
-mcompass-LITE-BLE-5883L-f19c2a6.bin | Standard version, BLE mode (configure via web), QMC5883L sensor
-mcompass-LITE-BLE-5883P-f19c2a6.bin | Standard version, BLE mode (configure via web), QMC5883P sensor
-mcompass-LITE-WIFI-5883L-f19c2a6.bin | Standard version, WiFi mode (configure via web), QMC5883L sensor
-mcompass-LITE-WIFI-5883P-f19c2a6.bin | Standard version, WiFi mode (configure via web), QMC5883P sensor
+mcompass-GPS-BLE-f19c2a6.bin | GPS version, BLE mode (configure via Mini Program)
+mcompass-GPS-WIFI-f19c2a6.bin | GPS version, WiFi mode (configure via web)
+mcompass-LITE-BLE-f19c2a6.bin | Standard version, BLE mode (configure via web)
+mcompass-LITE-WIFI-f19c2a6.bin | Standard version, WiFi mode (configure via web)
 
 
 After downloading, extract **mcompass.bin** and flash it to an **ESP32C3** using **Flash Download Tool**(select USB mode).
@@ -90,6 +86,7 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
 * Battery: 213455 500mAh.
 * Hardware: M2×3×3.2 knurled nut, M2×4 hex screw.
 * GPS: ATGM336H 5N71 module + antenna (13.1mm × 15.7mm).
+* QMC5883L is no longer available, and the latest firmware now supports QMC5883P.
 
 ## 3D Model
 [MakerWorld](https://makerworld.com.cn/zh/models/667420#profileId-611642)
