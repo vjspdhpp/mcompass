@@ -354,28 +354,21 @@ int QMC5883PCompass::_get(int i) {
 **/
 int QMC5883PCompass::getAzimuth()
 {
-    /* -------------------------------------------------------------
-       ① 坐标系映射
-          - 模块已翻到 PCB 背面 = 绕 X 轴旋转 180°
-          - 结果：X 轴方向不变，Y 轴取反
-          - 我们希望：X 用作 “北轴”，-Y 用作 “东轴”
-     ------------------------------------------------------------- */
     float heading = atan2(getX(), -getY()) * 180.0f / PI;
-
-    /* ② 地磁偏角补偿（若无需，可注释掉） */
     heading += _magneticDeclinationDegrees;
 
-    /* ③ 折叠到 0–359° */
-    if (heading < 0.0f)        heading += 360.0f;
+    if (heading < 0)       heading += 360.0f;
     else if (heading >= 360.0f) heading -= 360.0f;
 
-    /* ④ 顺时针为正的罗盘刻度：取 360°-θ */
-    heading = 360.0f - heading;
+    heading = 360.0f - heading;          // 顺时针为正
+    /* ------- 在此处加 180° 平移，让南变 0° ------- */
+    heading += 180.0f;
     if (heading >= 360.0f) heading -= 360.0f;
+    /* ------------------------------------------ */
 
-    /* ⑤ 返回整数角度（你也可返回 float 保留小数） */
     return static_cast<int>(heading);
 }
+
 
 /**
         GET BEARING (No change in logic, small fix for negative azimuth)
