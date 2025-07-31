@@ -1,99 +1,71 @@
-#ifndef QMC5883P_Compass
-#define QMC5883P_Compass
+#ifndef QMC5883P_COMPASS_H
+#define QMC5883P_COMPASS_H
 
-#include "Arduino.h"
-#include "Wire.h"
+#include <Arduino.h>
+#include <Wire.h>
 
-class QMC5883PCompass{
+class QMC5883PCompass {
 public:
     QMC5883PCompass();
+    void  init();
+    void  setADDR(byte b);
+    void  setMode(byte mode, byte odr, byte rng, byte osr);
+    void  setMagneticDeclination(int degrees, uint8_t minutes);
+    void  setSmoothing(byte steps, bool adv);
 
-    // 初始化与配置
-    void init();
-    void setADDR(byte b);
-    void setMode(byte mode, byte odr, byte rng, byte osr);
-    void setMagneticDeclination(int degrees, uint8_t minutes);
-    void setSmoothing(byte steps, bool adv);
-    void setReset();
-    char chipID();
-
-    // 读数（按“板级坐标”返回）
-    void read();
-    int  getX();
-    int  getY();
-    int  getZ();
-
-    // 方位角（度）
-    // 默认为“针角模式”：返回 360° - 导航角（用于直接旋转指针的UI）
-    // 若需返回导航角（正北0°、顺时针增加），请调用 setAzimuthUiMode(false)
-    int  getAzimuth();
-
-    // 切换方位角返回模式：true=针角(默认)，false=导航角
-    void setAzimuthUiMode(bool needleMode);
-
-    // 文字方位
-    byte getBearing(int azimuth);
-    void getDirection(char* myArray, int azimuth);
-
-    // 标定（针对“板级坐标”）
+    /* --- 校准相关 --- */
     void  calibrate();
-    void  setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max);
+    void  setCalibration(int x_min, int x_max,
+                         int y_min, int y_max,
+                         int z_min, int z_max);
     void  setCalibrationOffsets(float x_offset, float y_offset, float z_offset);
-    void  setCalibrationScales(float x_scale, float y_scale, float z_scale);
+    void  setCalibrationScales (float x_scale, float y_scale, float z_scale);
     float getCalibrationOffset(uint8_t index);
-    float getCalibrationScale(uint8_t index);
+    float getCalibrationScale (uint8_t index);
     void  clearCalibration();
 
-    // --- 轴重映射（板级X/Y/Z来自芯片轴，并可取反）---
-    enum Axis : uint8_t { AXIS_X = 0, AXIS_Y = 1, AXIS_Z = 2 };
-    void setAxisRemap(uint8_t boardX_src, int8_t boardX_sign,
-                      uint8_t boardY_src, int8_t boardY_sign,
-                      uint8_t boardZ_src, int8_t boardZ_sign);
+    void  setReset();
+
+    /* --- 读数接口 --- */
+    void  read();
+    int   getX();
+    int   getY();
+    int   getZ();
+    int   getAzimuth();                // 0-359°
+    byte  getBearing(int azimuth);     // 16 方位索引
+    void  getDirection(char* buf, int azimuth);
+    char  chipID();
 
 private:
-    // I2C
-    void _writeReg(byte reg, byte val);
+    void  _writeReg(byte reg, byte val);
+    int   _get(int index);
+    void  _smoothing();
+    void  _applyCalibration();
 
-    // 内部流程
-    int  _get(int index);
-    void _smoothing();
-    void _applyCalibration();
+    /* --- 内部变量 --- */
+    float _magneticDeclinationDegrees = 0.0f;
+    bool  _smoothUse      = false;
+    byte  _smoothSteps    = 5;
+    bool  _smoothAdvanced = false;
 
-    // 配置
-    byte  _ADDR = 0x2C;                 // QMC5883P 默认 I2C 地址
-    float _magneticDeclinationDegrees = 0; // 磁偏角（度）
-    bool  _azimuthNeedleMode = true;    // true: 返回针角(=360-heading)；false: 返回导航角(=heading)
+    byte  _ADDR           = 0x2C;          // QMC5883P 默认 I2C 地址
+    int   _vRaw[3]        = {0, 0, 0};
+    int   _vHistory[10][3];
+    int   _vScan          = 0;
+    long  _vTotals[3]     = {0, 0, 0};
+    int   _vSmooth[3]     = {0, 0, 0};
 
-    // 原始芯片读数（芯片坐标）
-    int _vRaw[3] = {0,0,0};
-    // 重映射后的“板级坐标”读数
-    int _vMapped[3] = {0,0,0};
-
-    // 平滑
-    bool _smoothUse      = false;
-    byte _smoothSteps    = 5;
-    bool _smoothAdvanced = false;
-    int  _vHistory[10][3];
-    int  _vScan = 0;
-    long _vTotals[3]  = {0,0,0};
-    int  _vSmooth[3]  = {0,0,0};
-
-    // 校准（板级）
-    float _offset[3] = {0.f,0.f,0.f};
-    float _scale[3]  = {1.f,1.f,1.f};
+    float _offset[3]      = {0.0f, 0.0f, 0.0f};
+    float _scale[3]       = {1.0f, 1.0f, 1.0f};
     int   _vCalibrated[3];
 
-    // 轴映射（默认：板=芯片，正号）
-    uint8_t _map_src[3] = {AXIS_X, AXIS_Y, AXIS_Z};
-    int8_t  _map_sgn[3] = {+1, +1, +1};
-
-    // 16方位字符
-    const char _bearings[16][3] =  {
-        {' ', ' ', 'N'},{'N','N','E'},{' ','N','E'},{'E','N','E'},
-        {' ', ' ', 'E'},{'E','S','E'},{' ','S','E'},{'S','S','E'},
-        {' ', ' ', 'S'},{'S','S','W'},{' ','S','W'},{'W','S','W'},
-        {' ', ' ', 'W'},{'W','N','W'},{' ','N','W'},{'N','N','W'},
+    /* 16 方位字符表 */
+    const char _bearings[16][3] = {
+        {' ', ' ', 'N'},  {'N', 'N', 'E'},  {' ', 'N', 'E'},  {'E', 'N', 'E'},
+        {' ', ' ', 'E'},  {'E', 'S', 'E'},  {' ', 'S', 'E'},  {'S', 'S', 'E'},
+        {' ', ' ', 'S'},  {'S', 'S', 'W'},  {' ', 'S', 'W'},  {'W', 'S', 'W'},
+        {' ', ' ', 'W'},  {'W', 'N', 'W'},  {' ', 'N', 'W'},  {'N', 'N', 'W'},
     };
 };
 
-#endif
+#endif /* QMC5883P_COMPASS_H */
