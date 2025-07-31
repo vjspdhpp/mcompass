@@ -174,28 +174,33 @@ int QMC5883PCompass::getZ() { return _get(2); }
 
 int QMC5883PCompass::_get(int i) { return _smoothUse ? _vSmooth[i] : _vCalibrated[i]; }
 
-// --- 方位角：正北0°、顺时针递增 ---
+/*
+ * 方位角：
+ *  - 先计算“导航角”：正北=0°，顺时针增加（heading = atan2(X, Y)）
+ *  - 若 _azimuthNeedleMode==true（默认），则返回“针角” = 360° - heading，
+ *    便于 UI 直接用这个角度去旋转“指针”（指针会与设备反向转动，始终指北）
+ *  - 若为 false，则返回“导航角”（用于数字显示或旋转表盘）
+ */
 int QMC5883PCompass::getAzimuth() {
-  // 关键：采用 atan2(X, Y) 使得顺时针旋转时角度增加
+  // 导航角（顺时针为正）：使用 atan2(X, Y)
   float heading = atan2((float)getX(), (float)getY()) * 180.0f / PI;
   heading += _magneticDeclinationDegrees;
 
+  // 归一到[0,360)
   while (heading <   0.0f) heading += 360.0f;
   while (heading >= 360.0f) heading -= 360.0f;
-  return (int)heading;
+
+  if (_azimuthNeedleMode) {
+    float needle = 360.0f - heading;
+    if (needle >= 360.0f) needle -= 360.0f;
+    return (int)needle;
+  } else {
+    return (int)heading;
+  }
 }
 
-// 转“表盘”的角度（针固定）：+heading
-int QMC5883PCompass::getDialAngle() {
-  return getAzimuth();
-}
-
-// 转“指针”的角度（表盘不动）：-heading  ← UI 用这个
-int QMC5883PCompass::getPointerAngle() {
-  int az = getAzimuth();
-  int ang = 360 - az;
-  if (ang >= 360) ang -= 360;
-  return ang;
+void QMC5883PCompass::setAzimuthUiMode(bool needleMode) {
+  _azimuthNeedleMode = needleMode;
 }
 
 byte QMC5883PCompass::getBearing(int azimuth) {
