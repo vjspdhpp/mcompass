@@ -1,34 +1,24 @@
-/*
- * QMC5883PCompass.cpp
- * 修正：
- *  - 方位角采用“正北0°、顺时针”为正：heading = atan2(X, Y)
- *  - 新增 getDialAngle() = 360° - heading，供“转表盘、针固定”式UI使用
- *  - 保留轴重映射能力
- */
-
 #include "QMC5883PCompass.h"
 #include "Arduino.h"
 #include <Wire.h>
 
 QMC5883PCompass::QMC5883PCompass() {}
 
-/** 初始化：开启 I2C，写入基础寄存器 */
 void QMC5883PCompass::init() {
   Wire.begin();
 
-  // 定义XYZ符号/方向寄存器（数据手册示例）。若完全靠软件重映射，也可忽略。
+  // 可选：数据手册示例寄存器，若仅用软件重映射也可不改
   _writeReg(0x29, 0x06);
 
-  // 0x0B：量程与 Set/Reset (RNG=8G(0x08) + Set/Reset On(0x01))
+  // 0x0B：量程=8G(0x08) + Set/Reset On(0x01)
   _writeReg(0x0B, 0x08 | 0x01);
 
-  // 0x0A：模式/ODR/OSR1 (连续模式0x03 + 200Hz 0x0C + OSR1=8 0x00)
+  // 0x0A：连续模式(0x03) + ODR=200Hz(0x0C) + OSR1=8(0x00)
   _writeReg(0x0A, 0x03 | 0x0C | 0x00);
 }
 
 void QMC5883PCompass::setADDR(byte b) { _ADDR = b; }
 
-/** 设置寄存器工具 */
 void QMC5883PCompass::_writeReg(byte r, byte v) {
   Wire.beginTransmission(_ADDR);
   Wire.write(r);
@@ -36,7 +26,6 @@ void QMC5883PCompass::_writeReg(byte r, byte v) {
   Wire.endTransmission();
 }
 
-/** 芯片ID（QMC5883P：0x00） */
 char QMC5883PCompass::chipID() {
   Wire.beginTransmission(_ADDR);
   Wire.write(0x00);
@@ -47,37 +36,30 @@ char QMC5883PCompass::chipID() {
   return id;
 }
 
-/** 模式设置（保持原接口语义） */
 void QMC5883PCompass::setMode(byte mode, byte odr, byte rng, byte osr) {
   byte regA_val = mode | odr | osr;   // 0x0A: MODE/ODR/OSR1
-  byte regB_val = rng | 0x01;         // 0x0B: RNG + Set/Reset On
+  byte regB_val = rng  | 0x01;        // 0x0B: RNG + Set/Reset On
   _writeReg(0x0B, regB_val);
   _writeReg(0x0A, regA_val);
 }
 
-/** 地磁偏角（度+分） */
 void QMC5883PCompass::setMagneticDeclination(int degrees, uint8_t minutes) {
   _magneticDeclinationDegrees = (float)degrees + (float)minutes / 60.0f;
 }
 
-/** 软复位（寄存器法） */
-void QMC5883PCompass::setReset() {
-  _writeReg(0x0B, 0x80); // SOFT_RST
-}
+void QMC5883PCompass::setReset() { _writeReg(0x0B, 0x80); }
 
-/** 平滑设置 */
 void QMC5883PCompass::setSmoothing(byte steps, bool adv) {
   _smoothUse = true;
   _smoothSteps = (steps < 2) ? 2 : ((steps > 10) ? 10 : steps);
   _smoothAdvanced = adv;
 }
 
-/** 一键标定（旋转 10 秒） */
 void QMC5883PCompass::calibrate() {
   clearCalibration();
   long range[3][2] = {{ 65000,-65000},{ 65000,-65000},{ 65000,-65000}};
 
-  read(); // 触发一次
+  read();
   long x = getX(), y = getY(), z = getZ();
   range[0][0] = range[0][1] = x;
   range[1][0] = range[1][1] = y;
@@ -131,7 +113,6 @@ void QMC5883PCompass::clearCalibration() {
   setCalibrationScales(1.f, 1.f, 1.f);
 }
 
-/** 读取一次（芯片XYZ -> 板级XYZ -> 校准 -> 平滑） */
 void QMC5883PCompass::read() {
   // QMC5883P：数据从 0x01 开始（X LSB..Z MSB）
   Wire.beginTransmission(_ADDR);
@@ -146,26 +127,24 @@ void QMC5883PCompass::read() {
   _vRaw[1] = (int)(int16_t)(Wire.read() | (Wire.read() << 8)); // chip Y
   _vRaw[2] = (int)(int16_t)(Wire.read() | (Wire.read() << 8)); // chip Z
 
-  // --- 轴重映射：得到“板级坐标” ---
+  // --- 轴重映射 → 板级坐标 ---
   _vMapped[0] = _map_sgn[0] * _vRaw[_map_src[0]]; // board X
   _vMapped[1] = _map_sgn[1] * _vRaw[_map_src[1]]; // board Y
   _vMapped[2] = _map_sgn[2] * _vRaw[_map_src[2]]; // board Z
 
-  // 应用校准（板级坐标）
+  // 应用校准（板级）
   _applyCalibration();
 
   // 可选平滑
   if (_smoothUse) _smoothing();
 }
 
-/** 应用硬铁/软铁校准 */
 void QMC5883PCompass::_applyCalibration() {
   _vCalibrated[0] = (int)((_vMapped[0] - _offset[0]) * _scale[0]);
   _vCalibrated[1] = (int)((_vMapped[1] - _offset[1]) * _scale[1]);
   _vCalibrated[2] = (int)((_vMapped[2] - _offset[2]) * _scale[2]);
 }
 
-/** 平滑滤波（支持“剔除极值”的高级模式） */
 void QMC5883PCompass::_smoothing() {
   if (_vScan > _smoothSteps - 1) _vScan = 0;
 
@@ -193,31 +172,30 @@ int QMC5883PCompass::getX() { return _get(0); }
 int QMC5883PCompass::getY() { return _get(1); }
 int QMC5883PCompass::getZ() { return _get(2); }
 
-int QMC5883PCompass::_get(int i) {
-  return _smoothUse ? _vSmooth[i] : _vCalibrated[i];
-}
+int QMC5883PCompass::_get(int i) { return _smoothUse ? _vSmooth[i] : _vCalibrated[i]; }
 
-/** 返回导航角：正北0°、顺时针（含磁偏角校正） */
+// --- 方位角：正北0°、顺时针递增 ---
 int QMC5883PCompass::getAzimuth() {
-  // 关键修正：heading = atan2(X, Y)
+  // 关键：采用 atan2(X, Y) 使得顺时针旋转时角度增加
   float heading = atan2((float)getX(), (float)getY()) * 180.0f / PI;
-
-  // 加上磁偏角
   heading += _magneticDeclinationDegrees;
 
-  // 归一化到[0,360)
   while (heading <   0.0f) heading += 360.0f;
   while (heading >= 360.0f) heading -= 360.0f;
-
   return (int)heading;
 }
 
-/** 表盘角：用于“转表盘、针固定”式UI（表盘需转的角度） */
+// 转“表盘”的角度（针固定）：+heading
 int QMC5883PCompass::getDialAngle() {
+  return getAzimuth();
+}
+
+// 转“指针”的角度（表盘不动）：-heading  ← UI 用这个
+int QMC5883PCompass::getPointerAngle() {
   int az = getAzimuth();
-  int dial = 360 - az;
-  if (dial >= 360) dial -= 360;
-  return dial;
+  int ang = 360 - az;
+  if (ang >= 360) ang -= 360;
+  return ang;
 }
 
 byte QMC5883PCompass::getBearing(int azimuth) {
@@ -232,7 +210,6 @@ void QMC5883PCompass::getDirection(char *myArray, int azimuth) {
   myArray[2] = _bearings[d][2];
 }
 
-/** 轴重映射设置：把“板级 X/Y/Z”映射到“芯片某轴”，并指定正负 */
 void QMC5883PCompass::setAxisRemap(uint8_t bx_src, int8_t bx_sgn,
                                     uint8_t by_src, int8_t by_sgn,
                                     uint8_t bz_src, int8_t bz_sgn) {
