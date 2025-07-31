@@ -182,22 +182,24 @@ int QMC5883PCompass::_get(int i) { return _smoothUse ? _vSmooth[i] : _vCalibrate
  *  - 若为 false，则返回“导航角”（用于数字显示或旋转表盘）
  */
 int QMC5883PCompass::getAzimuth() {
-  // 导航角（顺时针为正）：使用 atan2(X, Y)
+  // 先计算“导航角”：正北=0°，顺时针增加
+  // 说明：用 atan2(X, Y)（而非 atan2(Y, X)），使顺时针旋转时角度递增
   float heading = atan2((float)getX(), (float)getY()) * 180.0f / PI;
+
+  // 加上磁偏角
   heading += _magneticDeclinationDegrees;
 
-  // 归一到[0,360)
-  while (heading <   0.0f) heading += 360.0f;
+  // 归一化到 [0, 360)
+  while (heading < 0.0f)   heading += 360.0f;
   while (heading >= 360.0f) heading -= 360.0f;
 
-  if (_azimuthNeedleMode) {
-    float needle = 360.0f - heading;
-    if (needle >= 360.0f) needle -= 360.0f;
-    return (int)needle;
-  } else {
-    return (int)heading;
-  }
+  // 返回“针角”（用于直接驱动指针的UI）：needle = (360 - heading) % 360
+  float needle = 360.0f - heading;
+  if (needle >= 360.0f) needle -= 360.0f;
+
+  return (int)needle;
 }
+
 
 void QMC5883PCompass::setAzimuthUiMode(bool needleMode) {
   _azimuthNeedleMode = needleMode;
