@@ -24,12 +24,12 @@ public:
     int  getZ();
 
     // 方位角（度）
-    // 1) 正北为0°，顺时针递增（导航角）
+    // 默认为“针角模式”：返回 360° - 导航角（用于直接旋转指针的UI）
+    // 若需返回导航角（正北0°、顺时针增加），请调用 setAzimuthUiMode(false)
     int  getAzimuth();
-    // 2) 表盘应旋转的角（转表盘、针固定）：= +Azimuth
-    int  getDialAngle();
-    // 3) 指针应旋转的角（转针、表盘不动）：= -Azimuth  ← 你当前应当调用这个
-    int  getPointerAngle();
+
+    // 切换方位角返回模式：true=针角(默认)，false=导航角
+    void setAzimuthUiMode(bool needleMode);
 
     // 文字方位
     byte getBearing(int azimuth);
@@ -62,6 +62,7 @@ private:
     // 配置
     byte  _ADDR = 0x2C;                 // QMC5883P 默认 I2C 地址
     float _magneticDeclinationDegrees = 0; // 磁偏角（度）
+    bool  _azimuthNeedleMode = true;    // true: 返回针角(=360-heading)；false: 返回导航角(=heading)
 
     // 原始芯片读数（芯片坐标）
     int _vRaw[3] = {0,0,0};
