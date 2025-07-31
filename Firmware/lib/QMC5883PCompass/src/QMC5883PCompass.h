@@ -17,17 +17,19 @@ public:
     void setReset();
     char chipID();
 
-    // 读数（按板级坐标返回）
+    // 读数（按“板级坐标”返回）
     void read();
     int  getX();
     int  getY();
     int  getZ();
 
-    // 方位角（单位：度）
-    // getAzimuth(): 以“正北为0°，顺时针增加”的导航角
+    // 方位角（度）
+    // 1) 正北为0°，顺时针递增（导航角）
     int  getAzimuth();
-    // getDialAngle(): 用于“转表盘、针固定”的UI，返回应旋转的表盘角度=360°-Azimuth
+    // 2) 表盘应旋转的角（转表盘、针固定）：= +Azimuth
     int  getDialAngle();
+    // 3) 指针应旋转的角（转针、表盘不动）：= -Azimuth  ← 你当前应当调用这个
+    int  getPointerAngle();
 
     // 文字方位
     byte getBearing(int azimuth);
@@ -63,45 +65,33 @@ private:
 
     // 原始芯片读数（芯片坐标）
     int _vRaw[3] = {0,0,0};
-    // 轴重映射后的“板级坐标”读数
+    // 重映射后的“板级坐标”读数
     int _vMapped[3] = {0,0,0};
 
     // 平滑
     bool _smoothUse      = false;
-    byte _smoothSteps    = 5;           // 2..10
+    byte _smoothSteps    = 5;
     bool _smoothAdvanced = false;
     int  _vHistory[10][3];
     int  _vScan = 0;
     long _vTotals[3]  = {0,0,0};
     int  _vSmooth[3]  = {0,0,0};
 
-    // 校准（针对“板级坐标”）
+    // 校准（板级）
     float _offset[3] = {0.f,0.f,0.f};
     float _scale[3]  = {1.f,1.f,1.f};
     int   _vCalibrated[3];
 
-    // 轴重映射配置（默认：板=芯片，正号）
-    uint8_t _map_src[3] = {AXIS_X, AXIS_Y, AXIS_Z}; // board X/Y/Z 来自哪个芯片轴
-    int8_t  _map_sgn[3] = {+1, +1, +1};            // 符号
+    // 轴映射（默认：板=芯片，正号）
+    uint8_t _map_src[3] = {AXIS_X, AXIS_Y, AXIS_Z};
+    int8_t  _map_sgn[3] = {+1, +1, +1};
 
     // 16方位字符
     const char _bearings[16][3] =  {
-        {' ', ' ', 'N'},
-        {'N', 'N', 'E'},
-        {' ', 'N', 'E'},
-        {'E', 'N', 'E'},
-        {' ', ' ', 'E'},
-        {'E', 'S', 'E'},
-        {' ', 'S', 'E'},
-        {'S', 'S', 'E'},
-        {' ', ' ', 'S'},
-        {'S', 'S', 'W'},
-        {' ', 'S', 'W'},
-        {'W', 'S', 'W'},
-        {' ', ' ', 'W'},
-        {'W', 'N', 'W'},
-        {' ', 'N', 'W'},
-        {'N', 'N', 'W'},
+        {' ', ' ', 'N'},{'N','N','E'},{' ','N','E'},{'E','N','E'},
+        {' ', ' ', 'E'},{'E','S','E'},{' ','S','E'},{'S','S','E'},
+        {' ', ' ', 'S'},{'S','S','W'},{' ','S','W'},{'W','S','W'},
+        {' ', ' ', 'W'},{'W','N','W'},{' ','N','W'},{'N','N','W'},
     };
 };
 
