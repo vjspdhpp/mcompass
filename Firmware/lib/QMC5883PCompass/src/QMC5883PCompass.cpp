@@ -1,5 +1,9 @@
 /*
- * QMC5883PCompass.cpp – 添加“轴重映射/取反”以适配板级坐标
+ * QMC5883PCompass.cpp
+ * 修正：
+ *  - 方位角采用“正北0°、顺时针”为正：heading = atan2(X, Y)
+ *  - 新增 getDialAngle() = 360° - heading，供“转表盘、针固定”式UI使用
+ *  - 保留轴重映射能力
  */
 
 #include "QMC5883PCompass.h"
@@ -8,36 +12,23 @@
 
 QMC5883PCompass::QMC5883PCompass() {}
 
-/**
- * INIT：初始化
- */
+/** 初始化：开启 I2C，写入基础寄存器 */
 void QMC5883PCompass::init() {
   Wire.begin();
 
-  // 可选：根据数据手册的应用示例，设定“XYZ 符号/方向”寄存器
-  // 若后续采用软件重映射，这里保持 0x06 作为缺省即可
+  // 定义XYZ符号/方向寄存器（数据手册示例）。若完全靠软件重映射，也可忽略。
   _writeReg(0x29, 0x06);
 
-  // 0x0B: 量程=8G(0x08) + Set/Reset on(0x01)
+  // 0x0B：量程与 Set/Reset (RNG=8G(0x08) + Set/Reset On(0x01))
   _writeReg(0x0B, 0x08 | 0x01);
 
-  // 0x0A: 连续模式(0x03) + ODR=200Hz(0x0C) + OSR1=8(0x00)
+  // 0x0A：模式/ODR/OSR1 (连续模式0x03 + 200Hz 0x0C + OSR1=8 0x00)
   _writeReg(0x0A, 0x03 | 0x0C | 0x00);
 }
 
 void QMC5883PCompass::setADDR(byte b) { _ADDR = b; }
 
-/** 读取芯片ID（QMC5883P 在 0x00） */
-char QMC5883PCompass::chipID() {
-  Wire.beginTransmission(_ADDR);
-  Wire.write(0x00);
-  int err = Wire.endTransmission();
-  Wire.requestFrom(_ADDR, (byte)1);
-  char buf[1] = {0};
-  Wire.readBytes(buf, 1);
-  return buf[0];
-}
-
+/** 设置寄存器工具 */
 void QMC5883PCompass::_writeReg(byte r, byte v) {
   Wire.beginTransmission(_ADDR);
   Wire.write(r);
@@ -45,63 +36,83 @@ void QMC5883PCompass::_writeReg(byte r, byte v) {
   Wire.endTransmission();
 }
 
-/** 设置模式（保持你原有语义） */
+/** 芯片ID（QMC5883P：0x00） */
+char QMC5883PCompass::chipID() {
+  Wire.beginTransmission(_ADDR);
+  Wire.write(0x00);
+  (void)Wire.endTransmission();
+  Wire.requestFrom(_ADDR, (byte)1);
+  char id = 0;
+  if (Wire.available()) id = Wire.read();
+  return id;
+}
+
+/** 模式设置（保持原接口语义） */
 void QMC5883PCompass::setMode(byte mode, byte odr, byte rng, byte osr) {
-  byte regA_val = mode | odr | osr;
-  byte regB_val = rng | 0x01; // SET/RESET on
+  byte regA_val = mode | odr | osr;   // 0x0A: MODE/ODR/OSR1
+  byte regB_val = rng | 0x01;         // 0x0B: RNG + Set/Reset On
   _writeReg(0x0B, regB_val);
   _writeReg(0x0A, regA_val);
 }
 
+/** 地磁偏角（度+分） */
 void QMC5883PCompass::setMagneticDeclination(int degrees, uint8_t minutes) {
-  _magneticDeclinationDegrees = (float)degrees + (float)minutes / 60.0;
+  _magneticDeclinationDegrees = (float)degrees + (float)minutes / 60.0f;
 }
 
-void QMC5883PCompass::setReset() { _writeReg(0x0B, 0x80); }
+/** 软复位（寄存器法） */
+void QMC5883PCompass::setReset() {
+  _writeReg(0x0B, 0x80); // SOFT_RST
+}
 
+/** 平滑设置 */
 void QMC5883PCompass::setSmoothing(byte steps, bool adv) {
   _smoothUse = true;
-  _smoothSteps = (steps > 10) ? 10 : steps;
-  _smoothAdvanced = adv ? true : false;
+  _smoothSteps = (steps < 2) ? 2 : ((steps > 10) ? 10 : steps);
+  _smoothAdvanced = adv;
 }
 
+/** 一键标定（旋转 10 秒） */
 void QMC5883PCompass::calibrate() {
   clearCalibration();
-  long calibrationData[3][2] = {{65000, -65000}, {65000, -65000}, {65000, -65000}};
+  long range[3][2] = {{ 65000,-65000},{ 65000,-65000},{ 65000,-65000}};
 
-  // 预热
-  read();
-  long x = calibrationData[0][0] = calibrationData[0][1] = getX();
-  long y = calibrationData[1][0] = calibrationData[1][1] = getY();
-  long z = calibrationData[2][0] = calibrationData[2][1] = getZ();
+  read(); // 触发一次
+  long x = getX(), y = getY(), z = getZ();
+  range[0][0] = range[0][1] = x;
+  range[1][0] = range[1][1] = y;
+  range[2][0] = range[2][1] = z;
 
-  unsigned long startTime = millis();
-  while ((millis() - startTime) < 10000) {
+  unsigned long t0 = millis();
+  while (millis() - t0 < 10000) {
     read();
     x = getX(); y = getY(); z = getZ();
-    if (x < calibrationData[0][0]) calibrationData[0][0] = x;
-    if (x > calibrationData[0][1]) calibrationData[0][1] = x;
-    if (y < calibrationData[1][0]) calibrationData[1][0] = y;
-    if (y > calibrationData[1][1]) calibrationData[1][1] = y;
-    if (z < calibrationData[2][0]) calibrationData[2][0] = z;
-    if (z > calibrationData[2][1]) calibrationData[2][1] = z;
+    if (x < range[0][0]) range[0][0] = x;
+    if (x > range[0][1]) range[0][1] = x;
+    if (y < range[1][0]) range[1][0] = y;
+    if (y > range[1][1]) range[1][1] = y;
+    if (z < range[2][0]) range[2][0] = z;
+    if (z > range[2][1]) range[2][1] = z;
   }
 
-  setCalibration(calibrationData[0][0], calibrationData[0][1],
-                 calibrationData[1][0], calibrationData[1][1],
-                 calibrationData[2][0], calibrationData[2][1]);
+  setCalibration(range[0][0], range[0][1],
+                 range[1][0], range[1][1],
+                 range[2][0], range[2][1]);
 }
 
-void QMC5883PCompass::setCalibration(int x_min, int x_max, int y_min, int y_max,
+void QMC5883PCompass::setCalibration(int x_min, int x_max,
+                                     int y_min, int y_max,
                                      int z_min, int z_max) {
-  setCalibrationOffsets((x_min + x_max) / 2.0, (y_min + y_max) / 2.0, (z_min + z_max) / 2.0);
+  setCalibrationOffsets((x_min + x_max) / 2.0f,
+                        (y_min + y_max) / 2.0f,
+                        (z_min + z_max) / 2.0f);
 
-  float x_avg_delta = (x_max - x_min) / 2.0;
-  float y_avg_delta = (y_max - y_min) / 2.0;
-  float z_avg_delta = (z_max - z_min) / 2.0;
-  float avg_delta   = (x_avg_delta + y_avg_delta + z_avg_delta) / 3.0;
+  float x_delta = (x_max - x_min) / 2.0f;
+  float y_delta = (y_max - y_min) / 2.0f;
+  float z_delta = (z_max - z_min) / 2.0f;
+  float avg     = (x_delta + y_delta + z_delta) / 3.0f;
 
-  setCalibrationScales(avg_delta / x_avg_delta, avg_delta / y_avg_delta, avg_delta / z_avg_delta);
+  setCalibrationScales(avg / x_delta, avg / y_delta, avg / z_delta);
 }
 
 void QMC5883PCompass::setCalibrationOffsets(float x_offset, float y_offset, float z_offset) {
@@ -116,44 +127,46 @@ float QMC5883PCompass::getCalibrationOffset(uint8_t index) { return _offset[inde
 float QMC5883PCompass::getCalibrationScale(uint8_t index)  { return _scale[index]; }
 
 void QMC5883PCompass::clearCalibration() {
-  setCalibrationOffsets(0., 0., 0.);
-  setCalibrationScales(1., 1., 1.);
+  setCalibrationOffsets(0.f, 0.f, 0.f);
+  setCalibrationScales(1.f, 1.f, 1.f);
 }
 
-/**
- * READ：读芯片原始 XYZ，然后做“板级坐标重映射”与校准/平滑
- */
+/** 读取一次（芯片XYZ -> 板级XYZ -> 校准 -> 平滑） */
 void QMC5883PCompass::read() {
+  // QMC5883P：数据从 0x01 开始（X LSB..Z MSB）
   Wire.beginTransmission(_ADDR);
-  Wire.write(0x01); // QMC5883P: X_LSB 从 0x01 开始
-  int err = Wire.endTransmission();
-  if (!err) {
-    Wire.requestFrom(_ADDR, (byte)6);
-    // 芯片原始坐标
-    _vRaw[0] = (int)(int16_t)(Wire.read() | Wire.read() << 8); // chip X
-    _vRaw[1] = (int)(int16_t)(Wire.read() | Wire.read() << 8); // chip Y
-    _vRaw[2] = (int)(int16_t)(Wire.read() | Wire.read() << 8); // chip Z
+  Wire.write(0x01);
+  if (Wire.endTransmission()) return;
 
-    // --- 轴重映射：得到“板级坐标” ---
-    _vMapped[0] = _map_sgn[0] * _vRaw[_map_src[0]]; // board X
-    _vMapped[1] = _map_sgn[1] * _vRaw[_map_src[1]]; // board Y
-    _vMapped[2] = _map_sgn[2] * _vRaw[_map_src[2]]; // board Z
+  Wire.requestFrom(_ADDR, (byte)6);
+  if (Wire.available() < 6) return;
 
-    // 校准应用基于“板级坐标”
-    _applyCalibration();
+  // 芯片原始坐标
+  _vRaw[0] = (int)(int16_t)(Wire.read() | (Wire.read() << 8)); // chip X
+  _vRaw[1] = (int)(int16_t)(Wire.read() | (Wire.read() << 8)); // chip Y
+  _vRaw[2] = (int)(int16_t)(Wire.read() | (Wire.read() << 8)); // chip Z
 
-    if (_smoothUse) _smoothing();
-  }
+  // --- 轴重映射：得到“板级坐标” ---
+  _vMapped[0] = _map_sgn[0] * _vRaw[_map_src[0]]; // board X
+  _vMapped[1] = _map_sgn[1] * _vRaw[_map_src[1]]; // board Y
+  _vMapped[2] = _map_sgn[2] * _vRaw[_map_src[2]]; // board Z
+
+  // 应用校准（板级坐标）
+  _applyCalibration();
+
+  // 可选平滑
+  if (_smoothUse) _smoothing();
 }
 
+/** 应用硬铁/软铁校准 */
 void QMC5883PCompass::_applyCalibration() {
-  _vCalibrated[0] = (_vMapped[0] - _offset[0]) * _scale[0];
-  _vCalibrated[1] = (_vMapped[1] - _offset[1]) * _scale[1];
-  _vCalibrated[2] = (_vMapped[2] - _offset[2]) * _scale[2];
+  _vCalibrated[0] = (int)((_vMapped[0] - _offset[0]) * _scale[0]);
+  _vCalibrated[1] = (int)((_vMapped[1] - _offset[1]) * _scale[1]);
+  _vCalibrated[2] = (int)((_vMapped[2] - _offset[2]) * _scale[2]);
 }
 
+/** 平滑滤波（支持“剔除极值”的高级模式） */
 void QMC5883PCompass::_smoothing() {
-  byte max = 0, min = 0;
   if (_vScan > _smoothSteps - 1) _vScan = 0;
 
   for (int i = 0; i < 3; i++) {
@@ -161,12 +174,16 @@ void QMC5883PCompass::_smoothing() {
     _vHistory[_vScan][i] = _vCalibrated[i];
     _vTotals[i] += _vHistory[_vScan][i];
 
-    if (_smoothAdvanced) {
-      max = 0; for (int j = 0; j < _smoothSteps - 1; j++) max = (_vHistory[j][i] > _vHistory[max][i]) ? j : max;
-      min = 0; for (int k = 0; k < _smoothSteps - 1; k++) min = (_vHistory[k][i] < _vHistory[min][i]) ? k : min;
-      _vSmooth[i] = (_vTotals[i] - (_vHistory[max][i] + _vHistory[min][i])) / (_smoothSteps - 2);
+    if (_smoothAdvanced && _smoothSteps >= 3) {
+      byte maxIdx = 0, minIdx = 0;
+      for (int j = 1; j < _smoothSteps; j++) {
+        if (_vHistory[j][i] > _vHistory[maxIdx][i]) maxIdx = j;
+        if (_vHistory[j][i] < _vHistory[minIdx][i]) minIdx = j;
+      }
+      int sum = _vTotals[i] - (_vHistory[maxIdx][i] + _vHistory[minIdx][i]);
+      _vSmooth[i] = sum / (int)(_smoothSteps - 2);
     } else {
-      _vSmooth[i] = _vTotals[i] / _smoothSteps;
+      _vSmooth[i] = _vTotals[i] / (int)_smoothSteps;
     }
   }
   _vScan++;
@@ -177,23 +194,35 @@ int QMC5883PCompass::getY() { return _get(1); }
 int QMC5883PCompass::getZ() { return _get(2); }
 
 int QMC5883PCompass::_get(int i) {
-  if (_smoothUse) return _vSmooth[i];
-  return _vCalibrated[i];
+  return _smoothUse ? _vSmooth[i] : _vCalibrated[i];
 }
 
+/** 返回导航角：正北0°、顺时针（含磁偏角校正） */
 int QMC5883PCompass::getAzimuth() {
-  float heading = atan2(getY(), getX()) * 180.0 / PI; // 以“板级 X/Y”为基准
+  // 关键修正：heading = atan2(X, Y)
+  float heading = atan2((float)getX(), (float)getY()) * 180.0f / PI;
+
+  // 加上磁偏角
   heading += _magneticDeclinationDegrees;
-  // 归一到 0~359
-  while (heading < 0) heading += 360.0;
-  while (heading >= 360.0) heading -= 360.0;
+
+  // 归一化到[0,360)
+  while (heading <   0.0f) heading += 360.0f;
+  while (heading >= 360.0f) heading -= 360.0f;
+
   return (int)heading;
 }
 
+/** 表盘角：用于“转表盘、针固定”式UI（表盘需转的角度） */
+int QMC5883PCompass::getDialAngle() {
+  int az = getAzimuth();
+  int dial = 360 - az;
+  if (dial >= 360) dial -= 360;
+  return dial;
+}
+
 byte QMC5883PCompass::getBearing(int azimuth) {
-  float a = (azimuth + 11.25) / 22.5;
-  byte bearing = (int)a % 16;
-  return bearing;
+  float a = (azimuth + 11.25f) / 22.5f;
+  return ((int)a) & 0x0F;
 }
 
 void QMC5883PCompass::getDirection(char *myArray, int azimuth) {
@@ -203,7 +232,7 @@ void QMC5883PCompass::getDirection(char *myArray, int azimuth) {
   myArray[2] = _bearings[d][2];
 }
 
-// --- 新增：设置轴重映射 ---
+/** 轴重映射设置：把“板级 X/Y/Z”映射到“芯片某轴”，并指定正负 */
 void QMC5883PCompass::setAxisRemap(uint8_t bx_src, int8_t bx_sgn,
                                     uint8_t by_src, int8_t by_sgn,
                                     uint8_t bz_src, int8_t bz_sgn) {
