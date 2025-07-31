@@ -125,7 +125,6 @@ int sensor::getAzimuth() {
   case SensorModel::QMC5883P: {
     // QMC5883P的方位角需要特殊处理,他的Y轴和QMC5883L的Y轴是反向的
     // 需要将Y轴的值取反, 并且坐标相对于QMC5883L需要旋转90度
-    azimuth += 90;
     if (azimuth >= 360) {
       azimuth -= 360;
     }
