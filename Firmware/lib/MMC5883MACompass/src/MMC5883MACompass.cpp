@@ -50,7 +50,8 @@ void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
 }
 
 void MMC5883MACompass::calibrate() {
-clearCalibration();
+  setCalibrationOffsets(0., 0., 0.);
+  setCalibrationScales(1., 1., 1.);
   long calibrationData[3][2] = {
       {65000, -65000}, {65000, -65000}, {65000, -65000}};
   
