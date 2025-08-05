@@ -1,62 +1,60 @@
-#ifndef MMC5883MA_COMPASS_H
-#define MMC5883MA_COMPASS_H
+#ifndef MMC5883MA_Compass
+#define MMC5883MA_Compass
 
-#include <Arduino.h>
+#include "Arduino.h"
 #include <Wire.h>
 
 class MMC5883MACompass {
 public:
     MMC5883MACompass();
-
-    /* ---- 基本控制 ---- */
-    void   init();
-    void   setADDR(uint8_t addr);
-    char   chipID();                             // 读 0x2F，期望 0x0C
-    void   setMagneticDeclination(int deg, uint8_t min = 0);
-    void   setSmoothing(uint8_t steps = 5, bool advanced = false);
-    void   setCalibration(int x_min, int x_max,
-                          int y_min, int y_max,
-                          int z_min, int z_max);
-    void   clearCalibration();
-
-    /* ---- 读数接口 ---- */
-    void   read();                               // 带 SET/RESET 的一次完整读取
-    int    getX();
-    int    getY();
-    int    getZ();
-    int    getAzimuth();                         // 0-359°
-    uint8_t getBearing(int azimuth);             // 0-15
-    void   getDirection(char dir[3], int azimuth);
+    void init();
+    void setADDR(byte b);
+    void setMode(byte mode, byte odr);
+    void setMagneticDeclination(int degrees, uint8_t minutes);
+    void setSmoothing(byte steps, bool adv);
+    void calibrate();
+    void setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max);
+    void setCalibrationOffsets(float x_offset, float y_offset, float z_offset);
+    void setCalibrationScales(float x_scale, float y_scale, float z_scale);
+    float getCalibrationOffset(uint8_t index);
+    float getCalibrationScale(uint8_t index);
+    void clearCalibration();
+    void read();
+    int getX();
+    int getY();
+    int getZ();
+    int getAzimuth();
+    byte getBearing(int azimuth);
+    void getDirection(char* myArray, int azimuth);
+    char chipID();
 
 private:
-    /* ---- 低层工具 ---- */
-    void   _writeReg(uint8_t reg, uint8_t val);
-    bool   _singleMeasurement(int16_t& x, int16_t& y, int16_t& z);
-    void   _performSet();
-    void   _performReset();
-    void   _applyCalibration();
-    void   _smoothing();
-    int    _get(int idx);
+    void _writeReg(byte reg, byte val);
+    int _get(int index);
+    void _applyCalibration();
+    void _smoothing();
+    void _performSet();
+    void _performReset();
 
-    /* ---- 成员 ---- */
-    uint8_t _ADDR = 0x30;                        // 默认 I²C 地址
-    int32_t _vRaw[3]        {0, 0, 0};
-    int32_t _vCalibrated[3] {0, 0, 0};
-    float   _offset[3]      {0.f, 0.f, 0.f};
-    float   _scale[3]       {1.f, 1.f, 1.f};
-
-    /* 平滑 */
-    bool    _smoothUse      = false;
-    bool    _smoothAdv      = false;
-    uint8_t _smoothSteps    = 5;
-    int32_t _vHist[10][3]   {};
-    int32_t _vTotals[3]     {0, 0, 0};
-    uint8_t _vScan          = 0;
-    int32_t _vSmooth[3]     {0, 0, 0};
-
-    /* 其它 */
-    float   _declinationDeg = 0.f;
-    static const char _bearings[16][3];
+    float _magneticDeclinationDegrees = 0;
+    bool _smoothUse = false;
+    byte _smoothSteps = 5;
+    bool _smoothAdvanced = false;
+    byte _ADDR = 0x30; // MMC5883MA 默认 I2C 地址
+    int _vRaw[3] = {0, 0, 0};
+    int _vHistory[10][3];
+    int _vScan = 0;
+    long _vTotals[3] = {0, 0, 0};
+    int _vSmooth[3] = {0, 0, 0};
+    float _offset[3] = {0., 0., 0.};
+    float _scale[3] = {1., 1., 1.};
+    int _vCalibrated[3];
+    const char _bearings[16][3] = {
+        {'N',' ',' '},{'N','N','E'},{' ','N','E'},{'E','N','E'},
+        {' ',' ','E'},{'E','S','E'},{' ','S','E'},{'S','S','E'},
+        {' ',' ','S'},{'S','S','W'},{' ','S','W'},{'W','S','W'},
+        {' ',' ','W'},{'W','N','W'},{' ','N','W'},{'N','N','W'}
+    };
 };
 
 #endif
