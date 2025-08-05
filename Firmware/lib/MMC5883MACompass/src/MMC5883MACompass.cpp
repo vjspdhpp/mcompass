@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <Arduino.h>
 
-// 罗盘方向字典
+// 16向罗盘方向字典
 const char MMC5883MACompass::_bearings[16][3] = {
     {' ', ' ', 'N'}, {' ', 'N', 'N'}, {'N', 'N', 'E'}, {' ', 'N', 'E'},
     {'E', 'N', 'E'}, {' ', 'E', ' '}, {'E', 'S', 'E'}, {' ', 'S', 'E'},
@@ -18,9 +18,13 @@ void MMC5883MACompass::init() {
     // 软件复位
     _writeReg(0x09, 0x80);
     delay(5); // ≥5ms
-    // 设置BW=400Hz
+    // 设置输出数据率400Hz (CR1 BW=10)
     _writeReg(0x09, 0x02);
-    // 不设置MODE，以默认单次测量模式工作
+    // 设置连续测量模式 CR0 MODE=01
+    _writeReg(0x08, 0x01);
+    // 执行去偏置脉冲
+    _performSet();
+    _performReset();
 }
 
 void MMC5883MACompass::setReset() {
@@ -50,7 +54,7 @@ void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
 }
 
 void MMC5883MACompass::calibrate() {
-    // 用户可实现校准流程
+    // 用户可实现SET/RESET校准流程，在校准过程中多次read()
 }
 
 void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max) {
@@ -63,16 +67,7 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    // 等待数据就绪 (STATUS寄存器0x06 bit0)
-    uint8_t status;
-    do {
-        Wire.beginTransmission(_ADDR);
-        Wire.write((byte)0x06);
-        Wire.endTransmission();
-        Wire.requestFrom(_ADDR, (byte)1);
-        status = Wire.available() ? Wire.read() : 0;
-    } while (!(status & 0x01));
-    // 读取6字节数据
+    // 读取寄存器0x00-0x05
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
@@ -125,6 +120,16 @@ void MMC5883MACompass::_writeReg(byte r, byte v) {
     Wire.write(r);
     Wire.write(v);
     Wire.endTransmission();
+}
+
+void MMC5883MACompass::_performSet() {
+    _writeReg(0x08, 0x08);
+    delay(1);
+}
+
+void MMC5883MACompass::_performReset() {
+    _writeReg(0x08, 0x10);
+    delay(1);
 }
 
 void MMC5883MACompass::_applyCalibration() {
