@@ -67,7 +67,13 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    // 读取寄存器0x00-0x05
+    // 触发单次测量 (TM_M bit = 1)
+    _writeReg(0x08, 0x01);
+    // 重新设置输出数据率，防止TM写入清除ODR设置
+    _writeReg(0x09, 0x02);
+    // 等待测量完成: tTM ≈ 2.5ms
+    delay(3);
+    // 读取数据寄存器 0x00-0x05
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
@@ -77,6 +83,7 @@ void MMC5883MACompass::read() {
         _applyCalibration();
         if (_smoothUse) _smoothing();
     }
+}
 }
 
 char MMC5883MACompass::chipID() {
