@@ -97,6 +97,7 @@ int MMC5883MACompass::getAzimuth() {
     else if (heading >= 360) heading -= 360;
     heading = 360 - heading + 180;
     if (heading >= 360) heading -= 360;
+    Serial.println("Heading: " + String(heading));
     return (int)heading;
 }
 
