@@ -41,7 +41,7 @@ private:
     float _offset[3] = {0.0, 0.0, 0.0};
     float _scale[3]  = {1.0, 1.0, 1.0};
     int _vCalibrated[3] = {0, 0, 0};
-    const char _bearings[16][3];
+    static const char _bearings[16][3];
     void _writeReg(byte reg, byte val);
     void _performSet();
     void _performReset();
@@ -49,5 +49,4 @@ private:
     void _smoothing();
 };
 
-extern const char MMC5883MACompass::_bearings[16][3];
 #endif // MMC5883MA_COMPASS_H
