@@ -15,16 +15,12 @@ MMC5883MACompass::MMC5883MACompass() {}
 
 void MMC5883MACompass::init() {
     Wire.begin();
-    // 软件复位
-    _writeReg(0x09, 0x80);
-    delay(5); // ≥5ms
-    // 设置输出数据率400Hz (CR1 BW=10)
-    _writeReg(0x09, 0x02);
-    // 设置连续测量模式 CR0 MODE=01
-    _writeReg(0x08, 0x01);
-    // 执行去偏置脉冲
-    _performSet();
-    _performReset();
+    _writeReg(0x09, 0x80);   // 软件复位
+    delay(5);                // ≥5ms
+    _writeReg(0x09, 0x02);   // 设置CR1: BW=400Hz
+    _writeReg(0x08, 0x01);   // 设置CR0: 连续测量模式
+    _performSet();           // SET脉冲
+    _performReset();         // RESET脉冲
 }
 
 void MMC5883MACompass::setReset() {
@@ -54,7 +50,7 @@ void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
 }
 
 void MMC5883MACompass::calibrate() {
-    // 用户可实现SET/RESET校准流程，在校准过程中多次read()
+    // 用户可实现SET/RESET校准流程
 }
 
 void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max) {
@@ -67,13 +63,12 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    // 触发单次测量 (TM_M bit = 1)
+    // 触发单次测量 TM_M=1
     _writeReg(0x08, 0x01);
-    // 重新设置输出数据率，防止TM写入清除ODR设置
+    // 防止CR1丢失，重新写BW
     _writeReg(0x09, 0x02);
-    // 等待测量完成: tTM ≈ 2.5ms
-    delay(3);
-    // 读取数据寄存器 0x00-0x05
+    delay(3);                // ≥2.5ms
+    // 读取0x00-0x05寄存器
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
@@ -83,7 +78,6 @@ void MMC5883MACompass::read() {
         _applyCalibration();
         if (_smoothUse) _smoothing();
     }
-}
 }
 
 char MMC5883MACompass::chipID() {
