@@ -7,7 +7,16 @@
 class MMC5883MACompass {
 public:
     MMC5883MACompass();
+
+    // 基本接口
     void init();
+    void read();
+
+    // 适配器需要的 SET/RESET 接口
+    void setSet();
+    void setReset();
+
+    // 其它接口保持不变
     void setADDR(byte b);
     void setMode(byte mode, byte odr);
     void setMagneticDeclination(int degrees, uint8_t minutes);
@@ -19,7 +28,6 @@ public:
     float getCalibrationOffset(uint8_t index);
     float getCalibrationScale(uint8_t index);
     void clearCalibration();
-    void read();
     int getX();
     int getY();
     int getZ();
@@ -30,7 +38,6 @@ public:
 
 private:
     void _writeReg(byte reg, byte val);
-    int _get(int index);
     void _applyCalibration();
     void _smoothing();
     void _performSet();
@@ -40,15 +47,12 @@ private:
     bool _smoothUse = false;
     byte _smoothSteps = 5;
     bool _smoothAdvanced = false;
-    byte _ADDR = 0x30; // MMC5883MA 默认 I2C 地址
-    int _vRaw[3] = {0, 0, 0};
-    int _vHistory[10][3];
-    int _vScan = 0;
-    long _vTotals[3] = {0, 0, 0};
-    int _vSmooth[3] = {0, 0, 0};
-    float _offset[3] = {0., 0., 0.};
-    float _scale[3] = {1., 1., 1.};
-    int _vCalibrated[3];
+    byte _ADDR = 0x30;
+    int _vRaw[3] = {0,0,0};
+    int _vTotals[3] = {0,0,0};
+    int _vSmooth[3] = {0,0,0};
+    float _offset[3] = {0.,0.,0.};
+    float _scale[3] = {1.,1.,1.};
     const char _bearings[16][3] = {
         {'N',' ',' '},{'N','N','E'},{' ','N','E'},{'E','N','E'},
         {' ',' ','E'},{'E','S','E'},{' ','S','E'},{'S','S','E'},
