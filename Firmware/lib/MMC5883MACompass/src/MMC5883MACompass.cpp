@@ -3,16 +3,23 @@
 #include <Wire.h>
 #include <Arduino.h>
 
+// 罗盘方向字典
+const char MMC5883MACompass::_bearings[16][3] = {
+    {' ', ' ', 'N'}, {' ', 'N', 'N'}, {'N', 'N', 'E'}, {' ', 'N', 'E'},
+    {'E', 'N', 'E'}, {' ', 'E', ' '}, {'E', 'S', 'E'}, {' ', 'S', 'E'},
+    {'S', 'S', 'E'}, {' ', ' ', 'S'}, {'S', 'S', 'W'}, {' ', 'S', 'W'},
+    {'W', 'S', 'W'}, {' ', ' ', 'W'}, {'W', 'N', 'W'}, {' ', 'N', 'W'}
+};
+
 MMC5883MACompass::MMC5883MACompass() {}
 
 void MMC5883MACompass::init() {
     Wire.begin();
-    _writeReg(0x09, 0x80);  // SW reset
-    delay(5);               // ≥5ms
-    _writeReg(0x09, 0x02);  // BW = 400Hz
-    _writeReg(0x08, 0x01);  // Continuous mode
-    _performSet();
-    _performReset();
+    // 软件复位
+    _writeReg(0x09, 0x80);
+    delay(5);
+    // 设置输出数据率 400Hz (BW bits)
+    _writeReg(0x09, 0x02);
 }
 
 void MMC5883MACompass::setReset() {
@@ -42,7 +49,7 @@ void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
 }
 
 void MMC5883MACompass::calibrate() {
-    // 原校准可自行实现
+    // 用户可实现 SET/RESET 校准流程
 }
 
 void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max) {
@@ -55,16 +62,16 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    _writeReg(0x08, 0x02);  // Trigger single measurement
-    delay(3);               // ≥2.5ms
-
+    // 单次测量：写入 TM_M=1
+    _writeReg(0x08, 0x02);
+    delay(3);
+    // 读取数据
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
         _vRaw[0] = (int16_t)(Wire.read() | (Wire.read() << 8));
         _vRaw[1] = (int16_t)(Wire.read() | (Wire.read() << 8));
         _vRaw[2] = (int16_t)(Wire.read() | (Wire.read() << 8));
-        _performReset();
         _applyCalibration();
         if (_smoothUse) _smoothing();
     }
@@ -85,8 +92,7 @@ int MMC5883MACompass::getAzimuth() {
     heading += _magneticDeclinationDegrees;
     if (heading < 0) heading += 360;
     else if (heading >= 360) heading -= 360;
-    heading = 360 - heading;
-    heading += 180;
+    heading = 360 - heading + 180;
     if (heading >= 360) heading -= 360;
     return (int)heading;
 }
@@ -97,9 +103,7 @@ byte MMC5883MACompass::getBearing(int azimuth) {
 
 void MMC5883MACompass::getDirection(char *myArray, int azimuth) {
     byte b = getBearing(azimuth);
-    myArray[0] = _bearings[b][0];
-    myArray[1] = _bearings[b][1];
-    myArray[2] = _bearings[b][2];
+    memcpy(myArray, _bearings[b], 3);
     myArray[3] = '\0';
 }
 
@@ -111,25 +115,15 @@ float MMC5883MACompass::getCalibrationScale(byte idx) {
     return _scale[idx];
 }
 
-int MMC5883MACompass::getX() { return _vCalibrated[0]; }
-int MMC5883MACompass::getY() { return _vCalibrated[1]; }
-int MMC5883MACompass::getZ() { return _vCalibrated[2]; }
+int MMC5883MACompass::getX()  { return _vCalibrated[0]; }
+int MMC5883MACompass::getY()  { return _vCalibrated[1]; }
+int MMC5883MACompass::getZ()  { return _vCalibrated[2]; }
 
 void MMC5883MACompass::_writeReg(byte r, byte v) {
     Wire.beginTransmission(_ADDR);
     Wire.write(r);
     Wire.write(v);
     Wire.endTransmission();
-}
-
-void MMC5883MACompass::_performSet() {
-    _writeReg(0x08, 0x08);
-    delay(1);             // ≥1ms
-}
-
-void MMC5883MACompass::_performReset() {
-    _writeReg(0x08, 0x10);
-    delay(1);             // ≥1ms
 }
 
 void MMC5883MACompass::_applyCalibration() {
@@ -143,19 +137,17 @@ void MMC5883MACompass::_smoothing() {
     for (int i = 0; i < 3; i++) _vHistory[_vScan][i] = _vCalibrated[i];
     _vScan++;
     memset(_vTotals, 0, sizeof(_vTotals));
-    for (int j = 0; j < _smoothSteps; j++) {
+    for (int j = 0; j < _smoothSteps; j++)
         for (int i = 0; i < 3; i++) _vTotals[i] += _vHistory[j][i];
-    }
     for (int i = 0; i < 3; i++) {
         byte mx = 0, mn = 0;
         for (byte j = 1; j < _smoothSteps; j++) {
             if (_vHistory[j][i] > _vHistory[mx][i]) mx = j;
             if (_vHistory[j][i] < _vHistory[mn][i]) mn = j;
         }
-        if (_smoothAdvanced && _smoothSteps > 2) {
+        if (_smoothAdvanced && _smoothSteps > 2)
             _vSmooth[i] = (_vTotals[i] - _vHistory[mx][i] - _vHistory[mn][i]) / (_smoothSteps - 2);
-        } else {
+        else
             _vSmooth[i] = _vTotals[i] / _smoothSteps;
-        }
     }
 }
