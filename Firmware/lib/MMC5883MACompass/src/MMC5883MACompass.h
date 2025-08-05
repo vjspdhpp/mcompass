@@ -1,3 +1,4 @@
+// 文件: MMC5883MACompass.h
 #ifndef MMC5883MA_COMPASS_H
 #define MMC5883MA_COMPASS_H
 
@@ -48,3 +49,5 @@ private:
     void _applyCalibration();
     void _smoothing();
 };
+
+#endif // MMC5883MA_COMPASS_H
