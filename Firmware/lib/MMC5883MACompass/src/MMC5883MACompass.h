@@ -8,9 +8,9 @@
 class MMC5883MACompass {
 public:
     MMC5883MACompass();
-    /** 初始化: 软件复位, 设置400Hz ODR, 连续测量模式 */
+    /** 初始化: 软件复位, 设置400Hz ODR, 连续测量模式, 执行SET/RESET */
     void init();
-    /** 触发软件复位 */
+    /** 软件复位 */
     void setReset();
     /** 修改I2C地址 */
     void setADDR(byte addr);
@@ -32,7 +32,7 @@ public:
     int getAzimuth();
     /** 获取16向罗盘索引 */
     byte getBearing(int azimuth);
-    /** 获取方向字符串（三字符+终结符） */
+    /** 获取方向字符串 */
     void getDirection(char *buf, int azimuth);
     /** 获取校准偏移 */
     float getCalibrationOffset(byte idx);
