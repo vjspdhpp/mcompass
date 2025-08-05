@@ -1,3 +1,4 @@
+
 // 文件: MMC5883MACompass.cpp
 #include "MMC5883MACompass.h"
 #include <Wire.h>
@@ -15,9 +16,13 @@ MMC5883MACompass::MMC5883MACompass() {}
 
 void MMC5883MACompass::init() {
     Wire.begin();
+    // 软件复位
     _writeReg(0x09, 0x80);
-    delay(5);
+    delay(5); // ≥5ms
+    // 设置BW=400Hz
     _writeReg(0x09, 0x02);
+    // 设置连续测量模式 (MODE=1)
+    _writeReg(0x08, 0x01);
 }
 
 void MMC5883MACompass::setReset() {
@@ -25,8 +30,8 @@ void MMC5883MACompass::setReset() {
     delay(5);
 }
 
-void MMC5883MACompass::setADDR(byte b) {
-    _ADDR = b;
+void MMC5883MACompass::setADDR(byte addr) {
+    _ADDR = addr;
 }
 
 void MMC5883MACompass::setMode(byte mode, byte odr) {
@@ -41,8 +46,8 @@ void MMC5883MACompass::setMagneticDeclination(int degrees, uint8_t minutes) {
 }
 
 void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
-    _smoothUse      = true;
-    _smoothSteps    = min(steps, (byte)10);
+    _smoothUse = true;
+    _smoothSteps = min(steps, (byte)10);
     _smoothAdvanced = adv;
 }
 
@@ -60,8 +65,16 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    _writeReg(0x08, 0x02);
-    delay(3);
+    // 等待数据就绪 (STATUS寄存器0x06 bit0)
+    uint8_t status;
+    do {
+        Wire.beginTransmission(_ADDR);
+        Wire.write((byte)0x06);
+        Wire.endTransmission();
+        Wire.requestFrom(_ADDR, (byte)1);
+        status = Wire.available() ? Wire.read() : 0;
+    } while (!(status & 0x01));
+    // 读取6字节数据
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
@@ -75,7 +88,7 @@ void MMC5883MACompass::read() {
 
 char MMC5883MACompass::chipID() {
     Wire.beginTransmission(_ADDR);
-    Wire.write(0x07);
+    Wire.write((byte)0x07);
     if (Wire.endTransmission() == 0) {
         Wire.requestFrom(_ADDR, (byte)1);
         return Wire.read();
@@ -97,17 +110,17 @@ byte MMC5883MACompass::getBearing(int azimuth) {
     return azimuth * 16 / 360;
 }
 
-void MMC5883MACompass::getDirection(char *myArray, int azimuth) {
+void MMC5883MACompass::getDirection(char *buf, int azimuth) {
     byte b = getBearing(azimuth);
-    memcpy(myArray, _bearings[b], 3);
-    myArray[3] = '\0';
+    memcpy(buf, _bearings[b], 3);
+    buf[3] = '\0';
 }
 
 float MMC5883MACompass::getCalibrationOffset(byte idx) { return _offset[idx]; }
 float MMC5883MACompass::getCalibrationScale(byte idx)  { return _scale[idx]; }
-int MMC5883MACompass::getX()  { return _vCalibrated[0]; }
-int MMC5883MACompass::getY()  { return _vCalibrated[1]; }
-int MMC5883MACompass::getZ()  { return _vCalibrated[2]; }
+int   MMC5883MACompass::getX()  { return _vCalibrated[0]; }
+int   MMC5883MACompass::getY()  { return _vCalibrated[1]; }
+int   MMC5883MACompass::getZ()  { return _vCalibrated[2]; }
 
 void MMC5883MACompass::_writeReg(byte r, byte v) {
     Wire.beginTransmission(_ADDR);
