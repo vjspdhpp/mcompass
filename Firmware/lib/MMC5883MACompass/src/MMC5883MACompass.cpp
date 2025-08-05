@@ -15,10 +15,8 @@ MMC5883MACompass::MMC5883MACompass() {}
 
 void MMC5883MACompass::init() {
     Wire.begin();
-    // 软件复位
     _writeReg(0x09, 0x80);
     delay(5);
-    // 设置输出数据率 400Hz (BW bits)
     _writeReg(0x09, 0x02);
 }
 
@@ -49,7 +47,7 @@ void MMC5883MACompass::setSmoothing(byte steps, bool adv) {
 }
 
 void MMC5883MACompass::calibrate() {
-    // 用户可实现 SET/RESET 校准流程
+    // 用户可实现校准流程
 }
 
 void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max, int z_min, int z_max) {
@@ -62,10 +60,8 @@ void MMC5883MACompass::setCalibration(int x_min, int x_max, int y_min, int y_max
 }
 
 void MMC5883MACompass::read() {
-    // 单次测量：写入 TM_M=1
     _writeReg(0x08, 0x02);
     delay(3);
-    // 读取数据
     Wire.beginTransmission(_ADDR);
     Wire.write((byte)0x00);
     if (Wire.endTransmission() == 0 && Wire.requestFrom(_ADDR, (byte)6) == 6) {
@@ -107,14 +103,8 @@ void MMC5883MACompass::getDirection(char *myArray, int azimuth) {
     myArray[3] = '\0';
 }
 
-float MMC5883MACompass::getCalibrationOffset(byte idx) {
-    return _offset[idx];
-}
-
-float MMC5883MACompass::getCalibrationScale(byte idx) {
-    return _scale[idx];
-}
-
+float MMC5883MACompass::getCalibrationOffset(byte idx) { return _offset[idx]; }
+float MMC5883MACompass::getCalibrationScale(byte idx)  { return _scale[idx]; }
 int MMC5883MACompass::getX()  { return _vCalibrated[0]; }
 int MMC5883MACompass::getY()  { return _vCalibrated[1]; }
 int MMC5883MACompass::getZ()  { return _vCalibrated[2]; }
