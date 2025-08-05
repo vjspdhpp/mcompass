@@ -1,4 +1,3 @@
-
 // 文件: MMC5883MACompass.cpp
 #include "MMC5883MACompass.h"
 #include <Wire.h>
@@ -21,8 +20,7 @@ void MMC5883MACompass::init() {
     delay(5); // ≥5ms
     // 设置BW=400Hz
     _writeReg(0x09, 0x02);
-    // 设置连续测量模式 (MODE=1)
-    _writeReg(0x08, 0x01);
+    // 不设置MODE，以默认单次测量模式工作
 }
 
 void MMC5883MACompass::setReset() {
