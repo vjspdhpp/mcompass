@@ -14,32 +14,38 @@ static MagneticSensor *magneticSensor;
 static SensorModel sm = SensorModel::UNKNOWN;
 
 void sensor::init(Context *context) {
+  int retry = 3;
   // 初始化i2c
   Wire.begin();
   // 0x0D QMC5883L
   // 0x2C QMC5883P
   // 0x30 MMC5883MA
   // 遍历已知的地磁传感器地址,判断当前地磁传感器型号
-
-  Wire.beginTransmission(0x0D);
-  if (Wire.endTransmission() == 0) {
-    ESP_LOGI(TAG, "Found QMC5883L at address 0x0D");
-    sm = SensorModel::QMC5883L;
-    magneticSensor = new QMC5883LAdapter();
+  for (int i = 0; i < retry; i++) {
+    Wire.beginTransmission(0x0D);
+    if (Wire.endTransmission() == 0) {
+      ESP_LOGI(TAG, "Found QMC5883L at address 0x0D");
+      sm = SensorModel::QMC5883L;
+      magneticSensor = new QMC5883LAdapter();
+      break;
+    }
+    delay(100);
+    Wire.beginTransmission(0x2C);
+    if (Wire.endTransmission() == 0) {
+      ESP_LOGI(TAG, "Found QMC5883P at address 0x2C");
+      sm = SensorModel::QMC5883P;
+      magneticSensor = new QMC5883PAdapter();
+      break;
+    }
+    delay(100);
+    Wire.beginTransmission(0x30);
+    if (Wire.endTransmission() == 0) {
+      ESP_LOGI(TAG, "Found MMC5883MA at address 0x30");
+      sm = SensorModel::MMC5883MA;
+      magneticSensor = new MMC5883MAAdapter();
+      break;
+    }
   }
-  Wire.beginTransmission(0x2C);
-  if (Wire.endTransmission() == 0) {
-    ESP_LOGI(TAG, "Found QMC5883P at address 0x2C");
-    sm = SensorModel::QMC5883P;
-    magneticSensor = new QMC5883PAdapter();
-  }
-  Wire.beginTransmission(0x30);
-  if (Wire.endTransmission() == 0) {
-    ESP_LOGI(TAG, "Found MMC5883MA at address 0x30");
-    sm = SensorModel::MMC5883MA;
-    magneticSensor = new MMC5883MAAdapter();
-  }
-
   // 进行一次全量I2C扫描
   if (sm == SensorModel::UNKNOWN) {
     Serial.println(
@@ -55,18 +61,27 @@ void sensor::init(Context *context) {
           Serial.print("0");
         Serial.print(address, HEX);
         Serial.println("!");
+        if (address == 0x0D) {
+          sm = SensorModel::QMC5883L;
+        } else if (address == 0x2C) {
+          sm = SensorModel::QMC5883P;
+        } else if (address == 0x30) {
+          sm = SensorModel::MMC5883MA;
+        }
       }
     }
-    ESP_LOGE(TAG, "Sensor init failed");
-    context->setHasSensor(false);
-    context->setDeviceState(State::INFO);
-    Event::Body event;
-    event.type = Event::Type::TEXT;
-    event.source = Event::Source::SENSOR;
-    memcpy(event.TEXT.text, SENSOR_ERROR, sizeof(SENSOR_ERROR));
-    ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
-                                      0, &event, sizeof(event), 0));
-    return;
+    if (sm == SensorModel::UNKNOWN) {
+      ESP_LOGE(TAG, "Sensor init failed");
+      context->setHasSensor(false);
+      context->setDeviceState(State::INFO);
+      Event::Body event;
+      event.type = Event::Type::TEXT;
+      event.source = Event::Source::SENSOR;
+      memcpy(event.TEXT.text, SENSOR_ERROR, sizeof(SENSOR_ERROR));
+      ESP_ERROR_CHECK(esp_event_post_to(context->getEventLoop(), MCOMPASS_EVENT,
+                                        0, &event, sizeof(event), 0));
+      return;
+    }
   }
   magneticSensor->init();
   context->setSensorModel(sm);
