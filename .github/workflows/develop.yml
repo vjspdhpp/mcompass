@@ -22,7 +22,7 @@ jobs:
           DEFAULT_MODEL: ${{ matrix.model }}
           DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
         with:
-          environments: "airm2m_core_esp32c3" # Specify environments, e.g., "env1,env2"
+          environments: "esp32-c3-devkitm-1" # Specify environments, e.g., "env1,env2"
           targets: ""      # Specify targets, e.g., "upload,monitor"
           project-dir: "./Firmware/"  # Specify project directory
           project-conf: "" # Specify a custom platformio.ini
@@ -41,11 +41,11 @@ jobs:
           --flash_mode dio \
           --flash_freq 40m \
           --flash_size 4MB \
-          0x0000 ./Firmware/.pio/build/airm2m_core_esp32c3/bootloader.bin \
-          0x8000 ./Firmware/.pio/build/airm2m_core_esp32c3/partitions.bin \
+          0x0000 ./Firmware/.pio/build/esp32-c3-devkitm-1/bootloader.bin \
+          0x8000 ./Firmware/.pio/build/esp32-c3-devkitm-1/partitions.bin \
           0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
-          0x10000 ./Firmware/.pio/build/airm2m_core_esp32c3/firmware.bin \
-          0x210000 ./Firmware/.pio/build/airm2m_core_esp32c3/littlefs.bin \
+          0x10000 ./Firmware/.pio/build/esp32-c3-devkitm-1/firmware.bin \
+          0x210000 ./Firmware/.pio/build/esp32-c3-devkitm-1/littlefs.bin \
           -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
       - name: Get commit hash
         id: get_commit_hash
