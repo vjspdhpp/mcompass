@@ -4,7 +4,6 @@
 
 #include "context.h"
 
-
 #include "MMC5883MAAdapter.h"
 #include "MagneticSensor.h"
 #include "QMC5883LAdapter.h"
@@ -17,9 +16,9 @@ static MagneticSensor *magneticSensor;
 static SensorModel sm = SensorModel::UNKNOWN;
 
 void sensor::init(Context *context) {
-int retry = 3;
-  // 初始化i2c
-  Wire.begin();
+  int retry = 3;
+  // 初始化i2cm esp32-c3-devkitm-1默认I2C引脚8和9,这里需要手动修改回4和5
+  Wire.begin(4, 5);
   // 0x0D QMC5883L
   // 0x2C QMC5883P
   // 0x30 MMC5883MA
