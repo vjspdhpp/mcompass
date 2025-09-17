@@ -207,8 +207,8 @@ void pixel::showFrameByLocation(float latA, float lonA, float latB, float lonB,
   if (bearing < 0) {
     bearing += 360.0f;
   }
-  ESP_LOGI(TAG, "showFrameByLocation: bearing=%f, azimuth=%d", bearing,
-           azimuth);
+  // ESP_LOGI(TAG, "showFrameByLocation: bearing=%f, azimuth=%d", bearing,
+  //          azimuth);
   showFrameByBearing(bearing, azimuth);
 }
 
