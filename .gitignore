@@ -6,3 +6,4 @@ Doc/node_modules/
 Firmware/.vscode/
 .idea/
 Doc/bun.lock
+Firmware/assets/bearing_test.py

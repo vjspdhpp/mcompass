@@ -113,7 +113,6 @@ double utils::calculateBearing(double lat1, double lon1, double lat2,
       result = 0;
     }
   }
-
   return result * 180.0 / PI;
 }
 
