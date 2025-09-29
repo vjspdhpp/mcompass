@@ -13,5 +13,5 @@ void init(Context *context);
  * @brief 关闭蓝牙
  */
 void deinit(Context *context);
-}  // namespace ble_server
-}  // namespace mcompass
+} // namespace ble_server
+} // namespace mcompass

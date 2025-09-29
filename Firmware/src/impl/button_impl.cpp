@@ -2,6 +2,7 @@
 #include <WiFi.h>
 
 #include "board.h"
+#include "context.h"
 
 using namespace mcompass;
 static const char *TAG = "Button";

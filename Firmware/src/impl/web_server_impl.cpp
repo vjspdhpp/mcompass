@@ -10,6 +10,7 @@
 #include <esp_wifi.h>
 
 #include "board.h"
+#include "context.h"
 
 using namespace mcompass;
 
@@ -201,6 +202,7 @@ static void apis(void) {
     if (request->hasParam("azimuth")) {
       float azimuth = request->getParam("azimuth")->value().toFloat();
       ctx->setSubscribeSource(Event::Source::WEB_SERVER);
+      ctx->setWorkType(WorkType::MOD);
       auto eventLoop = ctx->getEventLoop();
       Event::Body event;
       event.type = Event::Type::AZIMUTH;
@@ -344,7 +346,7 @@ void web_server::endAccessPoint() {
 }
 
 static void launchServer(const char *defaultFile) {
-  if (!MDNS.begin("esp32")) {  // Set the hostname to "esp32.local"
+  if (!MDNS.begin("esp32")) { // Set the hostname to "esp32.local"
     ESP_LOGE(TAG, "Error setting up MDNS responder!");
     return;
   }
@@ -388,6 +390,9 @@ void web_server::init(Context *context) {
   WiFi.setAutoConnect(true);
   WiFi.begin(ssid, password);
   ctx->setDeviceState(State::COMPASS);
+  launchServer("index.html");
+  MDNS.addService("http", "tcp", 80);
+  serverEnable = true;
   // 15秒后未连接到WiFi,则开启热点
   esp_timer_handle_t localAccessPointTimer;
   esp_timer_create_args_t localAccessPointTimerArgs = {
@@ -395,16 +400,15 @@ void web_server::init(Context *context) {
           [](void *arg) {
             if (WiFi.status() != WL_CONNECTED) {
               createAccessPoint();
+              return;
             }
             ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString());
-            launchServer("index.html");
-            MDNS.addService("http", "tcp", 80);
-            serverEnable = true;
           },
       .arg = ctx,
       .dispatch_method = ESP_TIMER_TASK,
       .name = "localAccessPointTimer",
       .skip_unhandled_events = true};
+
   ESP_ERROR_CHECK(
       esp_timer_create(&localAccessPointTimerArgs, &localAccessPointTimer));
   esp_timer_start_once(localAccessPointTimer,
@@ -443,7 +447,7 @@ void web_server::init(Context *context) {
   esp_timer_start_once(
       wifiDisableTimer,
       (DEFAULT_WIFI_CONNECT_TIME + DEFAULT_SERVER_TIMEOUT) *
-          1000000);  // 网页服务启动30秒后, 无人使用则关闭WiFi模块
+          1000000); // 网页服务启动30秒后, 无人使用则关闭WiFi模块
 }
 
 void web_server::endServer() {

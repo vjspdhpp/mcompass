@@ -12,5 +12,5 @@ void init(Context *context);
  * @brief 按钮tick
  */
 void tick();
-}  // namespace button
-}  // namespace mcompass
+} // namespace button
+} // namespace mcompass

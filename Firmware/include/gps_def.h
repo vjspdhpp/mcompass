@@ -25,5 +25,5 @@ bool isValidGPSLocation(Location location);
  * @brief GPS 关闭
  */
 void disable();
-}  // namespace gps
-}  // namespace mcompass
+} // namespace gps
+} // namespace mcompass

@@ -3,7 +3,9 @@
 #include "macro_def.h"
 
 namespace mcompass {
+class Context;
 namespace pixel {
+
 /**
  * @brief LED初始化
  */
@@ -83,11 +85,6 @@ void showServerInfo();
  */
 void drawChar(char c, int startX, int startY, uint32_t color);
 /**
- * @brief 显示任务
- */
-void pixelTask(void *pvParameters);
-
-/**
  * @brief 设置亮度
  */
 void setBrightness(uint8_t brightness);
@@ -101,5 +98,16 @@ void setPointerColor(uint32_t pointColor);
  * @brief 倒计时
  */
 void counterDown(int seconds);
-}  // namespace pixel
-}  // namespace mcompass
+
+/**
+ * @brief 清除显示
+ */
+void clear();
+
+/**
+ * @brief 刷新显示
+ */
+void show();
+
+} // namespace pixel
+} // namespace mcompass

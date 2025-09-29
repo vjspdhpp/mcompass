@@ -4,6 +4,7 @@
 #include "event.h"
 #include "macro_def.h"
 #include "utils.h"
+#include "context.h"
 static NimBLEServer *pServer;
 static const char *TAG = "Bluetooth";
 // 是否有客户端进行连接, 1分钟没有客户端连接关闭Server
