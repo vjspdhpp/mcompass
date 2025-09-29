@@ -24,6 +24,9 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/chaosgoo/mcompass' }
-    ]
-  }
+    ],
+  },
+  head: [
+    ['script', { async: true, src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8924403350436509', crossorigin: 'anonymous' }]
+  ]
 })
