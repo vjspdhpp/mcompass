@@ -36,6 +36,10 @@ mcompass-LITE-WIFI-f19c2a6.bin | 标准版, WiFi模式, 使用网页配置
 
 固件已将`bootload.bin, partitions.bin, firmware.bin, littlefs.bin`合并, 直接烧录到地址0x0即可, 其余参数保持默认, SPI SPEED:40Mhz;SPI MODE:DIO
 
+#### 或者使用这款[ESPFlash](https://play.google.com/store/apps/details?id=io.serialflow.espflash)在手机上给ESP32C3烧录
+
+[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" width="323" height="125" />](https://play.google.com/store/apps/details?id=io.serialflow.espflash)
+
 ### 手动编译
 固件使用PlatformIO平台Arduino框架编写, 已将依赖库迁移至本地lib文件夹下.
 PlatformIO的安装方式请自行搜索;

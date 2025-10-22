@@ -24,7 +24,7 @@ Front|Bottom
 ## Compilation Instructions
 
 ### For Non-Compilers
-The repository includes GitHub Actions.You can download pre-built firmware from the latest successful "Build Firmware Workflow" run under[Actions](https://github.com/chaosgoo/mcompass/actions)
+The repository includes GitHub Actions.You can download pre-built firmware from the latest successful "Build Firmware Workflow" run under [Actions](https://github.com/chaosgoo/mcompass/actions)
 
 Eight files are available at the bottom of the workflow page. Choose one based on your geomagnetic sensor model and needs. WiFi/Bluetooth modes can be switched later via web/BLE.
 
@@ -39,6 +39,9 @@ mcompass-LITE-WIFI-f19c2a6.bin | Standard version, WiFi mode (configure via web)
 After downloading, extract **mcompass.bin** and flash it to an **ESP32C3** using **Flash Download Tool**(select USB mode).
 
 The firmware merges `bootload.bin`, `partitions.bin`, `firmware.bin`, and `littlefs.bin`. Flash at address 0x0 with default settings (SPI SPEED: 40MHz; SPI MODE: DIO).
+
+#### Or flash instantly with Android app https://play.google.com/store/apps/details?id=io.serialflow.espflash — one-tap, no PC.
+
 
 ### Manual Compilation
 The firmware is built on PlatformIO (Arduino framework). Dependencies are stored locally in the **lib** folder. Install PlatformIO separately.

@@ -27,6 +27,6 @@ export default defineConfig({
     ],
   },
   head: [
-    ['script', { async: true, src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8924403350436509', crossorigin: 'anonymous' }]
+    ['script', { async: true, src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1189115759021088', crossorigin: 'anonymous' }]
   ]
 })
