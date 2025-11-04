@@ -86,6 +86,7 @@ WiFi模式自带的服务端使用next.js开发, 安装好node.js后,进入Serve
 * 滚花螺母 M2x3x3.2
 * 螺丝 M2x4 内六角
 * GPS ATGM336H 5N71模块+天线, 尺寸13.1mmx15.7mm
+* QMC5883L已经停产,现已支持QMC5883P, 固件会自动识别
 
 ## 模型
 [MakerWorld](https://makerworld.com.cn/zh/models/667420#profileId-611642)

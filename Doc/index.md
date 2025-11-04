@@ -9,7 +9,7 @@ hero:
   actions:
     - theme: brand
       text: 项目描述
-      link: /readme
+      link: /introduction
     - theme: alt
       text: API一览
       link: /api
@@ -29,7 +29,9 @@ features:
     details: 提供了复刻所需的除游戏贴图以外所有文件.
     link: https://github.com/chaosgoo/mcompass.git
   - title: 基于ESP32-C3
+    link: https://github.com/chaosgoo/mcompass/tree/main/Firmware
     details: 为了消耗我的库存
   - title: 游戏进行联动
     details: 使用MOD和游戏内数据进行同步
+    link: https://github.com/chaosgoo/mcompass/tree/main/Mod
 ---

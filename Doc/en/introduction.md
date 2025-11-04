@@ -1,21 +1,10 @@
+---
+nextPage: ./make
+---
 # A Real-World Minecraft Compass
-
-- [English](README.md)
-- [中文](README.zh-CN.md)
+![Index](/MCompass.png)
 
 
-## Video Introduction 
-* [Youtube](https://www.youtube.com/watch?v=OetinqewrzU)
-* [bilibili](https://www.bilibili.com/video/BV1cfBzYnE2k/)
-
-
-![Index](./Doc/public/MCompass.png)
-
-Front|Bottom
--|-
-![Front](./Doc/public/FrontPCB.png)|![Bottom](./Doc/public/BottomPCB.png)
-
-## Disclaimer
 * **All Minecraft game assets are copyrighted by Microsoft**, Therefore, this project does not provide in-game compass image assets.
     * The panel file pixel blocks have been drawn and can be directly used to place an order on the LCSC panel order.
     * The original compass model extraction images are not provided.
@@ -42,6 +31,7 @@ The firmware merges `bootload.bin`, `partitions.bin`, `firmware.bin`, and `littl
 
 #### Or flash instantly with Android app https://play.google.com/store/apps/details?id=io.serialflow.espflash — one-tap, no PC.
 
+[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" width="323" height="125" />](https://play.google.com/store/apps/details?id=io.serialflow.espflash)
 
 ### Manual Compilation
 The firmware is built on PlatformIO (Arduino framework). Dependencies are stored locally in the **lib** folder. Install PlatformIO separately.
@@ -63,7 +53,7 @@ Finally, use PlatformIO’s **Build Filesystem Image** and **Upload Filesystem I
 ### Bluetooth Mode
 Since the Bluetooth mode relies on WeChat Mini Program for configuration, and most users may not use WeChat, this section will not be translated for now. If needed, please let me know and I'll provide the translation.
 
-![mini_program](./Doc/public/mini_program.jpg)
+![mini_program](/mini_program.jpg)
 
 ### Web Server Mode
 * On first boot, if no spawn point is configured, a hotspot named The Lost Compass will be created. Connect to it and visit:http://esp32.local or http://192.168.4.1 (fallback IP).
@@ -81,26 +71,5 @@ Since the Bluetooth mode relies on WeChat Mini Program for configuration, and mo
 
 `Note: GPS requires open outdoor environments. Without signal, the needle will spin erratically.`
 
-## Materials
-* PCB board thickness: 1.0mm, black solder mask, manufactured by JLCPCB;
-* Panel manufactured by LCSC Mall, parameters: 1.0mm semi-transparent black acrylic with strong light shielding, no back adhesive, to be glued together later;
-* Light diffuser material: PET LGT075J, no back adhesive, to be glued together later;
-* LED: WS2812B 0807 (1.7x2.0x0.85mm)
-* Battery: 213455 500mAh.  (21mm × 34mm × 55mm)
-* Hardware: M2×3×3.2 knurled nut, M2×4 hex screw.
-* GPS: ATGM336H 5N71 module + antenna (13.1mm × 15.7mm).
-* QMC5883L has been discontinued, now supports QMC5883P, and the firmware will automatically recognize it
-
-## 3D Model
-[MakerWorld](https://makerworld.com.cn/zh/models/667420#profileId-611642)
-![MakerWorld CN](./Doc/public/makerworldcn.jpg)
-
-## PCB & Panel Files
-[PCB Project & Panel Files on OSHWLab](https://oshwlab.com/vjspdhpp/a-real-world-minecraft-compass) 
-
 ## References
 [使用GPS坐标来计算距离和方位角 by 蓝色的飘漂](https://johnnyqian.net/blog/gps-locator.html)
-
-
-## Changelog
-See [update.md](./Doc/update.md)

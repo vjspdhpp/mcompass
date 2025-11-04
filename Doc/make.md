@@ -5,16 +5,16 @@
 
 ## 模型
 [MakerWorld CN](https://makerworld.com.cn/zh/models/667420#profileId-611642)
-![MakerWorld CN](./public/makerworldcn.jpg)
+![MakerWorld CN](/makerworldcn.jpg)
 
 ## PCB
 
 [PCB工程文件和面板](https://oshwhub.com/chaosgoo/wcompass)
 
-![Front](./public/FrontPCB.png)
+![Front](/FrontPCB.png)
 
 
-![Bottom](./public/BottomPCB.png)
+![Bottom](/BottomPCB.png)
 
 
 ## 材料补充说明
@@ -46,7 +46,7 @@
 * 检查开关是否开启, 向上拨动为开启状态
 * 检查ESP32-C3 是否焊接成功, 可将芯片拆下,背面朝上,检查是否有引脚未沾上锡
 图片里的就是刚好D-没有锡导致无法连接电脑, 这种情况手动给模块补锡
-![bottom_esp32c3](./public/bottom_esp32c3.png)
+![bottom_esp32c3](/bottom_esp32c3.png)
 
 * 检查LDO输出是否正常
 * 检查灯珠是否有方向错误问题
@@ -58,7 +58,7 @@
 **Q**: 烧录没有反应
 
 **A**: 请确认是否勾选了固件
-![checked_firmware_bin](./public/checked_firmware_bin.png)
+![checked_firmware_bin](/checked_firmware_bin.png)
 
 **Q**: 灯珠从某个开始就不亮了
 

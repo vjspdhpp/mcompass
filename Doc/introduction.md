@@ -2,7 +2,7 @@
 nextPage: /api
 ---
 # 一个现实世界中的Minecraft罗盘
-![Index](./public/MCompass.png)
+![Index](/MCompass.png)
 
 
 ## 声明
@@ -48,7 +48,7 @@ WiFi模式自带的服务端使用next.js开发, 安装好node.js后,进入Serve
 ## 功能说明
 
 ### 蓝牙后台模式
-![mini_program](./public/mini_program.jpg)
+![mini_program](/mini_program.jpg)
 
 启动后1分钟内可以通过**罗盘控制台**小程序搜索并连接, 使用**罗盘控制台**时候要确保授予小程序必须权限(蓝牙, 选择地点),别忘记开启蓝牙.
 在小程序中可以自定义指针的颜色,校准传感器, 地图选择目标地点
