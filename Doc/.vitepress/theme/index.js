@@ -1,0 +1,8 @@
+import DefaultTheme from 'vitepress/theme'
+import './styles/index.css'
+
+export default {
+  extends: DefaultTheme,
+  enhanceApp({ app }) {
+  }
+}

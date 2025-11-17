@@ -10,6 +10,9 @@ hero:
     - theme: brand
       text: Project Description
       link: ./introduction
+    # - theme: brand
+      # text: BOM
+      # link: ./bom
     - theme: alt
       text: Making Guide
       link: ./make

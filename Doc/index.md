@@ -10,12 +10,15 @@ hero:
     - theme: brand
       text: 项目描述
       link: /introduction
-    - theme: alt
-      text: API一览
-      link: /api
+    - theme: brand
+      text: 物料清单
+      link: /bom
     - theme: alt
       text: 制作
       link: /make
+    - theme: alt
+      text: API一览
+      link: /api
     - theme: alt
       text: 更新记录
       link: /update

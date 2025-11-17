@@ -46,6 +46,7 @@ export default defineConfig({
             text: '目录',
             items: [
               { text: '项目介绍', link: '/introduction' },
+              { text: '物料清单', link: '/bom' },
               { text: '制作', link: '/make' },
               { text: 'API', link: '/api' },
               { text: '更新记录', link: '/update' },
@@ -71,6 +72,7 @@ export default defineConfig({
             text: 'Contents',
             items: [
               { text: 'Introduction', link: '/en/introduction' },
+              // { text: 'Materials', link: '/en/bom' },
               { text: 'Making Guide', link: '/en/make' },
               { text: 'API', link: '/en/api' },
               { text: 'Changelog', link: '/en/update' },
