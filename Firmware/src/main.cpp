@@ -33,7 +33,7 @@ void setup() {
       .queue_size = 128,
       .task_name = "event_loop",
       .task_priority = configMAX_PRIORITIES - 1,
-      .task_stack_size = 1024 * 8,
+      .task_stack_size = 1024 * 16,
   };
   ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &eventLoop));
   context.setEventLoop(eventLoop);
